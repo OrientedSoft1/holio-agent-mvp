@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  --color-holio-orange: #FF9220;
+  --color-holio-dark: #152022;
+  --color-holio-lavender: #D1CBFB;
+  --color-holio-sage: #C6D5BA;
+  --color-holio-offwhite: #FCFCF8;
+  --color-holio-text: #1A1A1A;
+  --color-holio-muted: #8E8E93;
+}
+
+.dark {
+  --color-holio-offwhite: #0D1517;
+  --color-holio-dark: #0A0F10;
+  --color-holio-text: #E8E8ED;
+  --color-holio-muted: #9E9EA3;
+}
+
+.dark .bg-white {
+  background-color: #152022;
+}
+
+.dark .bg-gray-50 {
+  background-color: #1A2A2D;
+}
+
+.dark .border-gray-100 {
+  border-color: #1E3035;
+}
+
+.dark .border-gray-200 {
+  border-color: #1E3035;
+}
+
+.dark .text-holio-text {
+  color: #E8E8ED;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: #1A2A2D;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #1E3035;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-recording {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-recording {
+  animation: pulse-recording 1.2s ease-in-out infinite;
+}
+
+@keyframes bot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+}
+
+.bot-dot-1 { animation: bot-bounce 1.4s ease-in-out infinite; }
+.bot-dot-2 { animation: bot-bounce 1.4s ease-in-out 0.2s infinite; }
+.bot-dot-3 { animation: bot-bounce 1.4s ease-in-out 0.4s infinite; }

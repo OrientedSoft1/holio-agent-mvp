@@ -1,0 +1,36 @@
+---
+description: Testing conventions for backend and frontend
+globs: "**/*.spec.ts"
+---
+
+# Testing Rules
+
+## Backend (Jest)
+- Test files co-located with source: `module-name.spec.ts`
+- Unit test services by mocking repository/dependencies
+- Use `Test.createTestingModule()` for NestJS testing utilities
+- Test controllers with supertest for integration tests
+- Name tests: `describe('ServiceName')` -> `it('should do X when Y')`
+
+## Frontend (Vitest)
+- Test files co-located: `ComponentName.spec.tsx`
+- Use React Testing Library for component tests
+- Test user interactions, not implementation details
+- Mock API calls with MSW (Mock Service Worker)
+- Mock Socket.IO events for real-time feature tests
+
+## Coverage
+- Aim for 80%+ coverage on services and critical business logic
+- Don't test trivial getters/setters or framework boilerplate
+- Always test error paths and edge cases
+
+## Naming
+```
+describe('AuthService', () => {
+  describe('verifyCode', () => {
+    it('should return JWT tokens for valid code', () => {});
+    it('should throw BadRequestException for expired code', () => {});
+    it('should enforce rate limit after 5 failures', () => {});
+  });
+});
+```

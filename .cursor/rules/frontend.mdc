@@ -1,0 +1,50 @@
+---
+description: React frontend conventions and patterns
+globs: frontend/**
+---
+
+# Frontend Rules (React + Vite + Tailwind)
+
+## Component Structure
+```
+ComponentName/
+  index.tsx          # Main component export
+  ComponentName.tsx  # Component implementation (if complex)
+  useComponentName.ts  # Component-specific hook (if needed)
+```
+
+## Naming
+- Components: PascalCase (`ChatList.tsx`, `MessageBubble.tsx`)
+- Hooks: camelCase with `use` prefix (`useSocket.ts`, `useAuth.ts`)
+- Stores: camelCase with `Store` suffix (`authStore.ts`, `chatStore.ts`)
+- Services: camelCase with `.service.ts` suffix (`api.service.ts`)
+- Types/interfaces: PascalCase, in `src/types/` or co-located
+
+## State Management (Zustand)
+- One store per domain: auth, company, chat, ui, folder, bot, search
+- Keep stores flat, avoid deep nesting
+- Use selectors for derived state
+- Actions defined inside store (not external)
+
+## API Calls (React Query + Axios)
+- API client in `src/services/api.service.ts` with base URL and JWT interceptor
+- React Query hooks wrap API calls with proper cache keys
+- Mutations invalidate relevant queries on success
+- Loading/error states handled in components
+
+## Styling (Tailwind CSS)
+- Use Holio brand colors via custom Tailwind palette (holio-orange, holio-dark, etc.)
+- Prefer Tailwind utility classes over custom CSS
+- Use `cn()` utility (clsx + tailwind-merge) for conditional classes
+- Responsive: mobile-first, but primary target is desktop
+
+## Socket.IO
+- Single socket service in `src/services/socket.service.ts`
+- Connect on auth, disconnect on logout
+- Event listeners set up in custom hooks (e.g. `useSocket`)
+- Events follow `domain:action` naming pattern
+
+## Forms
+- Use controlled components with React state or React Hook Form
+- Validate on submit, show inline errors
+- Loading state on submit buttons

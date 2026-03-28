@@ -1,0 +1,38 @@
+---
+description: Holio brand identity rules - always applied to ensure consistent branding
+globs:
+alwaysApply: true
+---
+
+# Holio Brand Rules
+
+## Identity
+- App name: "Holio Agent" (short: "Holio")
+- NEVER use "Telegram", "Slack", "clone", or "copy" in any user-facing text
+- Logo: Bold uppercase "HOLIO" wordmark in heavy geometric sans-serif (e.g. Black weight of Inter, Montserrat, or similar)
+
+## Color Palette
+- Primary Orange: `#FF9220` -- CTA buttons, active states, sent message bubbles, accent text
+- Dark: `#152022` -- sidebar background, dark sections, dark mode base
+- Lavender: `#D1CBFB` -- secondary surfaces, selected states, hover effects
+- Sage Green: `#C6D5BA` -- tertiary accent, success states
+- Off-white: `#FCFCF8` -- page backgrounds, panel backgrounds
+- White: `#FFFFFF` -- cards, received message bubbles
+- Text Dark: `#1A1A1A` -- primary text on light backgrounds
+- Text Light: `#FFFFFF` -- text on dark backgrounds
+- Text Muted: `#8E8E93` -- timestamps, secondary text
+
+## Tailwind Config
+When referencing these colors in Tailwind, use the custom palette names:
+- `holio-orange`, `holio-dark`, `holio-lavender`, `holio-sage`, `holio-offwhite`
+
+## Typography
+- Headings: Bold/Black weight geometric sans-serif
+- Body: Regular weight, 14-16px base
+- Chat messages: 14px
+- Timestamps: 12px, muted color
+
+## Tone
+- Professional but approachable
+- Corporate-friendly, not casual
+- Clean, modern, minimal UI chrome
