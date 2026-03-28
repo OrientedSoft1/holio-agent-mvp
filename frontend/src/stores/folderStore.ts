@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import api from '../services/api.service'
 import type { Chat } from '../types'
 
 export interface Folder {
   id: string
   name: string
-  icon?: string
+  icon?: string | null
   filters: {
     contacts?: boolean
     nonContacts?: boolean
@@ -14,22 +15,27 @@ export interface Folder {
     bots?: boolean
   }
   chatIds?: string[]
+  order?: number
+  isDefault?: boolean
 }
 
 interface FolderState {
   folders: Folder[]
   activeFolder: string
+  loading: boolean
   setActiveFolder: (id: string) => void
-  addFolder: (folder: Folder) => void
-  removeFolder: (id: string) => void
+  fetchFolders: () => Promise<void>
+  addFolder: (name: string, filters?: Folder['filters'], chatIds?: string[]) => Promise<void>
+  updateFolder: (id: string, updates: Partial<Pick<Folder, 'name' | 'icon' | 'filters' | 'chatIds'>>) => Promise<void>
+  removeFolder: (id: string) => Promise<void>
   filterChats: (chats: Chat[]) => Chat[]
 }
 
 const DEFAULT_FOLDERS: Folder[] = [
-  { id: 'all', name: 'All Chats', filters: {} },
-  { id: 'personal', name: 'Personal', filters: { contacts: true } },
-  { id: 'work', name: 'Work', filters: { channels: true, groups: true } },
-  { id: 'bots', name: 'Bots', filters: { bots: true } },
+  { id: 'all', name: 'All Chats', filters: {}, isDefault: true },
+  { id: 'personal', name: 'Personal', filters: { contacts: true }, isDefault: true },
+  { id: 'work', name: 'Work', filters: { channels: true, groups: true }, isDefault: true },
+  { id: 'bots', name: 'Bots', filters: { bots: true }, isDefault: true },
 ]
 
 export const useFolderStore = create<FolderState>()(
@@ -37,17 +43,67 @@ export const useFolderStore = create<FolderState>()(
     (set, get) => ({
       folders: DEFAULT_FOLDERS,
       activeFolder: 'all',
+      loading: false,
 
       setActiveFolder: (id: string) => set({ activeFolder: id }),
 
-      addFolder: (folder: Folder) =>
-        set((state) => ({ folders: [...state.folders, folder] })),
+      fetchFolders: async () => {
+        set({ loading: true })
+        try {
+          const { data } = await api.get<Folder[]>('/folders')
+          const custom: Folder[] = data.map((f) => ({
+            ...f,
+            filters: f.filters ?? {},
+            isDefault: false,
+          }))
+          set({ folders: [...DEFAULT_FOLDERS, ...custom] })
+        } catch {
+          // keep defaults on error
+        } finally {
+          set({ loading: false })
+        }
+      },
 
-      removeFolder: (id: string) =>
-        set((state) => ({
-          folders: state.folders.filter((f) => f.id !== id),
-          activeFolder: state.activeFolder === id ? 'all' : state.activeFolder,
-        })),
+      addFolder: async (name, filters = {}, chatIds = []) => {
+        try {
+          const { data } = await api.post<Folder>('/folders', {
+            name,
+            filters,
+            chatIds,
+          })
+          set((state) => ({
+            folders: [...state.folders, { ...data, filters: data.filters ?? {}, isDefault: false }],
+            activeFolder: data.id,
+          }))
+        } catch {
+          // silent
+        }
+      },
+
+      updateFolder: async (id, updates) => {
+        try {
+          const { data } = await api.patch<Folder>(`/folders/${id}`, updates)
+          set((state) => ({
+            folders: state.folders.map((f) =>
+              f.id === id ? { ...f, ...data, filters: data.filters ?? f.filters, isDefault: false } : f,
+            ),
+          }))
+        } catch {
+          // silent
+        }
+      },
+
+      removeFolder: async (id: string) => {
+        try {
+          await api.delete(`/folders/${id}`)
+          set((state) => ({
+            folders: state.folders.filter((f) => f.id !== id),
+            activeFolder: state.activeFolder === id ? 'all' : state.activeFolder,
+          }))
+        } catch {
+          // silent
+        }
+      },
 
       filterChats: (chats: Chat[]) => {
         const { activeFolder, folders } = get()

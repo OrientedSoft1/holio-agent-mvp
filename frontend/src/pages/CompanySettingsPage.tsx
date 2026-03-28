@@ -14,13 +14,15 @@ import {
   Loader2,
   Upload,
   User,
+  Cpu,
 } from 'lucide-react'
 import { useCompanyStore } from '../stores/companyStore'
 import api from '../services/api.service'
 import { cn } from '../lib/utils'
+import BedrockSettings from '../components/company/BedrockSettings'
 import type { Company, CompanyMember, CompanyInvitation } from '../types'
 
-type Tab = 'general' | 'members' | 'invitations' | 'bots'
+type Tab = 'general' | 'members' | 'invitations' | 'bedrock'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <Settings className="h-4 w-4" /> },
@@ -31,9 +33,9 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     icon: <Mail className="h-4 w-4" />,
   },
   {
-    id: 'bots',
-    label: 'Bot Settings',
-    icon: <Shield className="h-4 w-4" />,
+    id: 'bedrock',
+    label: 'AI Configuration',
+    icon: <Cpu className="h-4 w-4" />,
   },
 ]
 
@@ -646,23 +648,16 @@ export default function CompanySettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                disabled={tab.id === 'bots'}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   activeTab === tab.id
                     ? 'bg-holio-lavender/40 text-holio-text'
                     : 'text-holio-muted hover:bg-gray-50 hover:text-holio-text',
-                  tab.id === 'bots' && 'opacity-40 cursor-not-allowed',
                 )}
               >
                 {tab.icon}
                 {tab.label}
-                {tab.id === 'bots' && (
-                  <span className="ml-auto text-[10px] text-holio-muted">
-                    Soon
-                  </span>
-                )}
-                {activeTab === tab.id && tab.id !== 'bots' && (
+                {activeTab === tab.id && (
                   <ChevronRight className="ml-auto h-4 w-4 text-holio-muted" />
                 )}
               </button>
@@ -691,16 +686,8 @@ export default function CompanySettingsPage() {
           {activeTab === 'invitations' && (
             <InvitationsTab companyId={activeCompany.id} />
           )}
-          {activeTab === 'bots' && (
-            <div className="rounded-xl bg-white p-8 text-center shadow-sm">
-              <Shield className="mx-auto mb-3 h-8 w-8 text-holio-muted" />
-              <p className="font-medium text-holio-text">
-                Bot Settings coming soon
-              </p>
-              <p className="mt-1 text-sm text-holio-muted">
-                Configure AI agents for your workspace
-              </p>
-            </div>
+          {activeTab === 'bedrock' && (
+            <BedrockSettings companyId={activeCompany.id} />
           )}
         </div>
       </main>

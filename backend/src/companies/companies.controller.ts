@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -14,10 +15,15 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service.js';
+import { BedrockConfigService } from './bedrock-config.service.js';
 import { CreateCompanyDto } from './dto/create-company.dto.js';
 import { UpdateCompanyDto } from './dto/update-company.dto.js';
 import { InviteMemberDto } from './dto/invite-member.dto.js';
 import { UpdateMemberDto } from './dto/update-member.dto.js';
+import {
+  UpdateBedrockConfigDto,
+  ValidateBedrockCredentialsDto,
+} from './dto/bedrock-config.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { User } from '../users/entities/user.entity.js';
@@ -27,7 +33,10 @@ import { User } from '../users/entities/user.entity.js';
 @UseGuards(JwtAuthGuard)
 @Controller('companies')
 export class CompaniesController {
-  constructor(private readonly companiesService: CompaniesService) {}
+  constructor(
+    private readonly companiesService: CompaniesService,
+    private readonly bedrockConfigService: BedrockConfigService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new company' })
@@ -139,5 +148,53 @@ export class CompaniesController {
     @CurrentUser() user: User,
   ) {
     return this.companiesService.removeMember(id, userId, user.id);
+  }
+
+  // ──── Bedrock Configuration ────
+
+  @Get(':id/bedrock-config')
+  @ApiOperation({ summary: 'Get Bedrock configuration for a company' })
+  async getBedrockConfig(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.bedrockConfigService.getConfig(id);
+  }
+
+  @Put(':id/bedrock-config')
+  @ApiOperation({ summary: 'Update Bedrock configuration for a company' })
+  async updateBedrockConfig(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateBedrockConfigDto,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.bedrockConfigService.updateConfig(id, dto);
+  }
+
+  @Post(':id/bedrock-config/validate')
+  @ApiOperation({ summary: 'Validate AWS Bedrock credentials' })
+  async validateBedrockCredentials(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: ValidateBedrockCredentialsDto,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.bedrockConfigService.validateCredentials(
+      dto.accessKeyId,
+      dto.secretAccessKey,
+      dto.region,
+    );
+  }
+
+  @Get(':id/bedrock-models')
+  @ApiOperation({ summary: 'List available Bedrock models for a company' })
+  async listBedrockModels(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.bedrockConfigService.listModels(id);
   }
 }

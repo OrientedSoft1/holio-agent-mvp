@@ -93,6 +93,9 @@ export class CompaniesService {
     if (dto.settings !== undefined) {
       company.settings = { ...company.settings, ...dto.settings };
     }
+    if (dto.bedrockRegion !== undefined) {
+      company.bedrockRegion = dto.bedrockRegion;
+    }
 
     return this.companyRepo.save(company);
   }
@@ -269,6 +272,13 @@ export class CompaniesService {
   }
 
   // ──── Helpers ────
+
+  async checkAdminAccessPublic(
+    companyId: string,
+    userId: string,
+  ): Promise<CompanyMember> {
+    return this.checkAdminAccess(companyId, userId);
+  }
 
   private async checkMembership(
     companyId: string,

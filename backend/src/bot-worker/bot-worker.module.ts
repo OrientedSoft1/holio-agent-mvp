@@ -7,11 +7,13 @@ import { Bot } from '../bots/entities/bot.entity.js';
 import { Message } from '../messages/entities/message.entity.js';
 import { Company } from '../companies/entities/company.entity.js';
 import { BedrockService } from '../bots/bedrock.service.js';
+import { CompaniesModule } from '../companies/companies.module.js';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([BotTask, Bot, Message, Company]),
     BullModule.registerQueue({ name: 'bot-tasks' }),
+    CompaniesModule,
   ],
   providers: [BotWorkerService, BedrockService],
   exports: [BotWorkerService],
