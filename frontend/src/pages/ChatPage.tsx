@@ -1,4 +1,6 @@
 import Sidebar from '../components/layout/Sidebar'
+import BottomNavBar from '../components/layout/BottomNavBar'
+import FloatingActionButton from '../components/layout/FloatingActionButton'
 import ChatListPanel from '../components/chat/ChatListPanel'
 import ChatViewPanel from '../components/chat/ChatViewPanel'
 import InfoPanel from '../components/chat/InfoPanel'
@@ -51,11 +53,12 @@ export default function ChatPage() {
 
   const isContactsView = activeNavItem === 'contacts'
 
-
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen overflow-hidden bg-holio-offwhite">
-        <Sidebar />
+        <div className="hidden md:block">
+          <Sidebar />
+        </div>
         <ResizablePanel
           width={chatListWidth}
           minWidth={240}
@@ -85,6 +88,8 @@ export default function ChatPage() {
           </ResizablePanel>
         )}
       </div>
+      <FloatingActionButton />
+      <BottomNavBar />
       <GlobalSearch
         open={showGlobalSearch}
         onClose={() => setShowGlobalSearch(false)}
