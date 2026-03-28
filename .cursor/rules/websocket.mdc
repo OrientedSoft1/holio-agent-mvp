@@ -1,0 +1,33 @@
+---
+description: WebSocket gateway conventions
+globs: backend/src/gateway/**
+---
+
+# WebSocket Gateway Rules
+
+## Event Naming
+- Format: `domain:action` (camelCase)
+- Client -> Server: `message:send`, `typing:start`, `typing:stop`, `message:read`, `reaction:add`
+- Server -> Client: `message:new`, `message:edit`, `message:delete`, `typing:update`, `presence:update`, `bot:response`
+
+## Authentication
+- JWT token sent in handshake `auth.token`
+- Validate on connection, reject with `WsException` if invalid
+- Store userId -> socketId mapping in Redis
+
+## Room Management
+- Users join rooms named by chatId on connection
+- Room format: `chat:{chatId}`
+- Company-wide events: `company:{companyId}`
+- Bot streaming: `bot:{taskId}`
+
+## Presence
+- Set user online on connect, offline on disconnect
+- Broadcast `presence:update` to relevant contacts
+- Store online status in Redis with TTL
+
+## Message Flow
+1. Client emits `message:send` with payload
+2. Gateway validates, saves via MessageService
+3. Gateway broadcasts `message:new` to chat room
+4. If message @mentions a bot, queue bot task

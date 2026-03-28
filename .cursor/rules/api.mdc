@@ -1,0 +1,32 @@
+---
+description: REST API endpoint conventions
+globs: backend/src/**/*.controller.ts
+---
+
+# API Controller Rules
+
+## Endpoint Patterns
+- `GET /resource` -- List (paginated)
+- `GET /resource/:id` -- Get single
+- `POST /resource` -- Create
+- `PATCH /resource/:id` -- Partial update
+- `DELETE /resource/:id` -- Delete
+
+## Pagination
+- Use query params: `?page=1&limit=20`
+- Return: `{ data: T[], total: number, page: number, limit: number }`
+
+## Authentication
+- All endpoints require `@UseGuards(JwtAuthGuard)` unless decorated with `@Public()`
+- Company-scoped endpoints verify membership via `CompanyMemberGuard`
+- Admin-only endpoints use `@Roles('admin', 'owner')` decorator
+
+## Swagger
+- Every controller uses `@ApiTags('domain-name')`
+- Every endpoint has `@ApiOperation({ summary: '...' })`
+- Response types documented with `@ApiResponse()`
+
+## Request Validation
+- All body DTOs validated via `ValidationPipe` (global)
+- Path params validated with `ParseUUIDPipe`
+- Query params use dedicated Query DTO classes

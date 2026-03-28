@@ -1,0 +1,40 @@
+---
+description: AI Bot system and AWS Bedrock integration patterns
+globs:
+  - backend/src/bots/**
+  - backend/src/bot-worker/**
+  - frontend/src/components/bots/**
+---
+
+# AI Bot Rules
+
+## AWS Bedrock Integration
+- Use `@aws-sdk/client-bedrock-runtime` with Converse API
+- Support models: `anthropic.claude-sonnet`, `amazon.nova-pro`, `meta.llama3`, `mistralai.mistral`
+- Use streaming via `ConverseStreamCommand` for real-time responses
+- Per-company Bedrock config (endpoint, region) from Company entity
+
+## Bot Entity Pattern
+- Each bot belongs to a company
+- System prompt defines bot personality and capabilities
+- Model, temperature, maxTokens are configurable per bot
+- Tools array defines what actions the bot can perform
+
+## Bot Task Processing
+- When a message @mentions a bot, create a BotTask record
+- Queue task in Bull queue with `botId`, `chatId`, `triggerMessageId`
+- Worker picks up task, invokes Bedrock with conversation context
+- Stream response chunks back via WebSocket `bot:response` event
+- On completion, save full response and update BotTask status
+
+## Bot Messages
+- Messages from bots have `senderType: 'bot'` and `senderId: botId`
+- Bot response messages use type `botResult`
+- Frontend renders bot messages with distinct styling (AI badge, colored border)
+- Rich cards for structured data (markdown rendered, collapsible sections)
+
+## Security
+- Only company admins can create/configure/delete bots
+- Bot access to Bedrock uses company's AWS credentials
+- All bot tasks are logged for audit (tokens, duration, cost)
+- Rate limit bot invocations per company
