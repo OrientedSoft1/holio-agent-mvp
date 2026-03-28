@@ -106,6 +106,7 @@ export default function ChatViewPanel() {
               return (
                 <MessageBubble
                   key={msg.id}
+                  rawMessage={msg}
                   message={{
                     id: msg.id,
                     content: msg.content,

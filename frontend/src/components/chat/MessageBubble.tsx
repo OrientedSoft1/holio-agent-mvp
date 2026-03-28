@@ -3,6 +3,7 @@ import { Check, CheckCheck, X, Clock } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Message, MessageMetadata, GroupReadReceipt, MessageReaction } from '../../types'
 import api from '../../services/api.service'
+import { useChatStore } from '../../stores/chatStore'
 import ImageMessage from '../messages/ImageMessage'
 import ImageViewer from '../messages/ImageViewer'
 import VoiceMessage from '../messages/VoiceMessage'
@@ -14,6 +15,7 @@ import BotMessage from '../messages/BotMessage'
 import PollMessage from '../messages/PollMessage'
 import ReactionBar from '../messages/ReactionBar'
 import ReactionPicker from '../messages/ReactionPicker'
+import MessageContextMenu from './MessageContextMenu'
 
 export interface MessageData {
   id: string
@@ -35,6 +37,7 @@ export interface MessageData {
 
 interface MessageBubbleProps {
   message: MessageData
+  rawMessage?: Message
 }
 
 function GroupReadPopup({
@@ -95,12 +98,52 @@ function GroupReadPopup({
   )
 }
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+export default function MessageBubble({ message, rawMessage }: MessageBubbleProps) {
   const [viewerImages, setViewerImages] = useState<string[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
   const [showReadPopup, setShowReadPopup] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactions, setReactions] = useState<MessageReaction[]>(message.reactions ?? [])
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+
+  const setReplyTo = useChatStore((s) => s.setReplyTo)
+  const setEditing = useChatStore((s) => s.setEditing)
+  const removeMessage = useChatStore((s) => s.removeMessage)
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleContextAction = async (action: string) => {
+    setContextMenu(null)
+    switch (action) {
+      case 'reply':
+        if (rawMessage) setReplyTo(rawMessage)
+        break
+      case 'edit':
+        if (rawMessage) setEditing(rawMessage)
+        break
+      case 'copy':
+        if (message.content) {
+          await navigator.clipboard.writeText(message.content)
+        }
+        break
+      case 'forward':
+        break
+      case 'pin':
+        try {
+          await api.patch(`/messages/${message.id}/pin`)
+        } catch { /* ignore */ }
+        break
+      case 'delete':
+        try {
+          await api.delete(`/chats/${rawMessage?.chatId}/messages/${message.id}`)
+          removeMessage(message.id)
+        } catch { /* ignore */ }
+        break
+    }
+  }
 
   const isBotMessage =
     message.senderType === 'bot' || message.type === 'botResult'
@@ -263,6 +306,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     <>
       <div
         className={cn('group relative flex', message.isMine ? 'justify-end' : 'justify-start')}
+        onContextMenu={handleContextMenu}
         onMouseEnter={() => setShowReactionPicker(true)}
         onMouseLeave={() => setShowReactionPicker(false)}
       >
@@ -350,6 +394,15 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       </div>
       {viewerImages && (
         <ImageViewer images={viewerImages} initialIndex={viewerIndex} onClose={() => setViewerImages(null)} />
+      )}
+      {contextMenu && (
+        <MessageContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          isMine={message.isMine}
+          onAction={handleContextAction}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </>
   )

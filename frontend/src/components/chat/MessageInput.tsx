@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, type KeyboardEvent } from 'react'
 import {
   Paperclip,
   Smile,
@@ -13,6 +13,8 @@ import {
   Server,
   Clock,
   X,
+  Reply,
+  Pencil,
 } from 'lucide-react'
 import { useChatStore } from '../../stores/chatStore'
 import { useBotStore } from '../../stores/botStore'
@@ -59,6 +61,11 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
   const sendMessage = useChatStore((s) => s.sendMessage)
+  const replyToMessage = useChatStore((s) => s.replyToMessage)
+  const editingMessage = useChatStore((s) => s.editingMessage)
+  const setReplyTo = useChatStore((s) => s.setReplyTo)
+  const setEditing = useChatStore((s) => s.setEditing)
+  const updateMessage = useChatStore((s) => s.updateMessage)
   const companyBots = useBotStore((s) => s.companyBots)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -74,6 +81,13 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     )
   }, [companyBots, mentionQuery])
 
+  useEffect(() => {
+    if (editingMessage) {
+      setText(editingMessage.content ?? '')
+      textareaRef.current?.focus()
+    }
+  }, [editingMessage])
+
   const handleSend = async (scheduledAt?: string) => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
@@ -83,7 +97,17 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     setShowMentionMenu(false)
     setShowSchedule(false)
     try {
-      await sendMessage(chatId, trimmed, 'text', scheduledAt ? { metadata: { scheduledAt } } : undefined)
+      if (editingMessage) {
+        await api.patch(`/chats/${chatId}/messages/${editingMessage.id}`, { content: trimmed })
+        updateMessage(editingMessage.id, { content: trimmed, isEdited: true } as any)
+        setEditing(null)
+      } else {
+        const extra: Record<string, unknown> = {}
+        if (replyToMessage) extra.replyToId = replyToMessage.id
+        if (scheduledAt) extra.metadata = { scheduledAt }
+        await sendMessage(chatId, trimmed, 'text', extra as any)
+        setReplyTo(null)
+      }
     } catch {
       setText(trimmed)
     } finally {
@@ -152,6 +176,11 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+
+    if (e.key === 'Escape') {
+      if (editingMessage) { setEditing(null); setText('') }
+      else if (replyToMessage) setReplyTo(null)
     }
   }
 
@@ -271,7 +300,38 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   }
 
   return (
-    <div className="relative flex items-end gap-2 border-t border-gray-100 bg-white p-3 dark:bg-[#152022] dark:border-[#1E3035]">
+    <div className="relative border-t border-gray-100 bg-white dark:bg-[#152022] dark:border-[#1E3035]">
+      {replyToMessage && (
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 dark:border-[#1E3035]">
+          <Reply className="h-4 w-4 text-holio-orange" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-holio-orange">
+              Reply to {replyToMessage.sender?.firstName ?? 'message'}
+            </p>
+            <p className="truncate text-xs text-holio-muted">
+              {replyToMessage.content}
+            </p>
+          </div>
+          <button onClick={() => setReplyTo(null)} className="text-holio-muted hover:text-holio-text">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {editingMessage && (
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 dark:border-[#1E3035]">
+          <Pencil className="h-4 w-4 text-holio-orange" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-holio-orange">Editing message</p>
+            <p className="truncate text-xs text-holio-muted">
+              {editingMessage.content}
+            </p>
+          </div>
+          <button onClick={() => { setEditing(null); setText('') }} className="text-holio-muted hover:text-holio-text">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <div className="flex items-end gap-2 p-3">
       <input
         ref={photoInputRef}
         type="file"
@@ -451,6 +511,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           <Mic className="h-5 w-5" />
         </button>
       )}
+      </div>
     </div>
   )
 }
