@@ -12,10 +12,16 @@ import {
   Crown,
   ShieldCheck,
   Check,
+  Hash,
+  Pencil,
+  BarChart3,
+  Users,
+  Eye,
+  Forward,
 } from 'lucide-react'
 import api from '../../services/api.service'
 import { cn } from '../../lib/utils'
-import type { ChatMember, ChannelPermissions, Chat } from '../../types'
+import type { ChatMember, ChannelPermissions, Chat, Message } from '../../types'
 
 interface ChannelAdminPanelProps {
   chat: Chat
@@ -51,6 +57,7 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
   const [saving, setSaving] = useState(false)
   const [inviteLinks, setInviteLinks] = useState<Array<{ token: string; expiresAt: string }>>([])
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [recentPosts, setRecentPosts] = useState<Message[]>([])
 
   const [name, setName] = useState(chat.name ?? '')
   const [description, setDescription] = useState(chat.description ?? '')
@@ -71,6 +78,20 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
   useEffect(() => {
     fetchMembers()
   }, [fetchMembers])
+
+  useEffect(() => {
+    async function fetchRecentPosts() {
+      try {
+        const { data } = await api.get<Message[]>(`/chats/${chat.id}/messages`, {
+          params: { page: 1, limit: 3 },
+        })
+        setRecentPosts(data)
+      } catch {
+        // ignore
+      }
+    }
+    fetchRecentPosts()
+  }, [chat.id])
 
   const handleSaveSettings = async () => {
     setSaving(true)
@@ -162,6 +183,72 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {/* Channel Identity */}
+        <div className="flex flex-col items-center border-b border-gray-100 px-4 py-5">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
+            <Hash className="h-8 w-8 text-purple-600" />
+          </div>
+          <h4 className="mt-2 text-sm font-semibold text-holio-text">{chat.name ?? 'Channel'}</h4>
+          <p className="text-xs text-holio-muted">channel, {members.length} subscribers</p>
+        </div>
+
+        {/* Admin Banner */}
+        <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-holio-orange/10 px-3 py-2.5">
+          <Shield className="h-4 w-4 flex-shrink-0 text-holio-orange" />
+          <span className="text-xs font-medium text-holio-orange">
+            You are the admin of this channel
+          </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 px-4 py-4">
+          {(
+            [
+              [Pencil, 'Edit'],
+              [BarChart3, 'Statistics'],
+              [Users, 'Members'],
+              [Link, 'Invite Link'],
+            ] as const
+          ).map(([Icon, label]) => (
+            <button
+              key={label}
+              onClick={label === 'Invite Link' ? handleGenerateLink : undefined}
+              className="flex flex-1 flex-col items-center gap-1.5 rounded-xl bg-gray-50 py-3 text-holio-muted transition-colors hover:bg-holio-lavender/20 hover:text-holio-text"
+            >
+              <Icon className="h-4 w-4" />
+              <span className="text-[10px] font-medium">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Recent Posts */}
+        {recentPosts.length > 0 && (
+          <div className="border-b border-gray-100 px-4 pb-4">
+            <h4 className="mb-3 text-xs font-semibold tracking-wide text-holio-muted uppercase">
+              Recent Posts
+            </h4>
+            <div className="space-y-2">
+              {recentPosts.map((post) => (
+                <div key={post.id} className="rounded-lg bg-gray-50 p-3">
+                  <p className="line-clamp-2 text-xs text-holio-text">{post.content}</p>
+                  <div className="mt-2 flex items-center gap-3 text-[10px] text-holio-muted">
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      {(post.metadata as any)?.viewCount ?? 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Forward className="h-3 w-3" />
+                      {(post.metadata as any)?.forwardCount ?? 0}
+                    </span>
+                    <span className="ml-auto">
+                      {new Date(post.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Channel Settings */}
         <div className="border-b border-gray-100 px-4 py-4">
           <h4 className="mb-3 text-xs font-semibold tracking-wide text-holio-muted uppercase">
