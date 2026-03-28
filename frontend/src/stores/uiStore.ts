@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type NavItem = 'all' | 'personal' | 'company' | 'channels' | 'bots' | 'favorites' | 'stories'
+export type NavItem = 'all' | 'personal' | 'company' | 'channels' | 'bots' | 'favorites' | 'stories' | 'contacts'
 
 interface UiState {
   showInfoPanel: boolean
