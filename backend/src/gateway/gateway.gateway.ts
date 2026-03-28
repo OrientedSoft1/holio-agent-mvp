@@ -43,6 +43,10 @@ export class AppGateway
 
   afterInit() {
     this.logger.log('WebSocket gateway initialized');
+
+    this.messagesService.setMessageEditEmitter((message) => {
+      this.server.to(`chat:${message.chatId}`).emit('message:edit', message);
+    });
   }
 
   async handleConnection(client: Socket) {

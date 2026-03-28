@@ -37,13 +37,40 @@ export interface Chat {
   createdAt: string
 }
 
+export interface LinkPreviewData {
+  url: string
+  title: string
+  description?: string
+  image?: string
+  domain: string
+}
+
+export interface FileMetadata {
+  name: string
+  size: number
+  mimeType: string
+  url: string
+}
+
+export interface MessageMetadata {
+  files?: FileMetadata[]
+  linkPreview?: LinkPreviewData
+  duration?: number
+  waveform?: number[]
+  width?: number
+  height?: number
+  isViewOnce?: boolean
+}
+
 export interface Message {
   id: string
   chatId: string
   senderId: string
   content: string
-  type: 'text' | 'image' | 'file' | 'system'
+  type: 'text' | 'image' | 'file' | 'voice' | 'videoNote' | 'gif' | 'system'
+  fileUrl: string | null
   replyToId: string | null
+  metadata: MessageMetadata | null
   createdAt: string
   updatedAt: string
   sender: User

@@ -15,6 +15,7 @@ import { StoriesModule } from './stories/stories.module.js';
 import { ReactionsModule } from './reactions/reactions.module.js';
 import { SearchModule } from './search/search.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { UploadsModule } from './uploads/uploads.module.js';
 import { GatewayModule } from './gateway/gateway.module.js';
 import { CommonModule } from './common/common.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
@@ -53,6 +54,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
     SearchModule,
     NotificationsModule,
     GatewayModule,
+    UploadsModule,
     CommonModule,
   ],
   providers: [

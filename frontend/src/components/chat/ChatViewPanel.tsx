@@ -117,6 +117,9 @@ export default function ChatViewPanel() {
                     senderName: msg.sender?.firstName,
                     isRead: true,
                     isGroup: isGroupLike,
+                    type: msg.type,
+                    fileUrl: msg.fileUrl,
+                    metadata: msg.metadata,
                   }}
                 />
               )

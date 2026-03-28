@@ -3,7 +3,10 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
+  IsNumber,
+  IsBoolean,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { MessageType } from '../../common/enums.js';
@@ -27,6 +30,14 @@ export class CreateMessageDto {
 
   @ApiPropertyOptional()
   @IsString()
+  @ValidateIf((o: CreateMessageDto) =>
+    [
+      MessageType.VOICE,
+      MessageType.VIDEO_NOTE,
+      MessageType.FILE,
+      MessageType.IMAGE,
+    ].includes(o.type as MessageType),
+  )
   @IsOptional()
   fileUrl?: string;
 
@@ -36,6 +47,7 @@ export class CreateMessageDto {
   fileName?: string;
 
   @ApiPropertyOptional()
+  @IsNumber()
   @IsOptional()
   fileSize?: number;
 
@@ -44,7 +56,11 @@ export class CreateMessageDto {
   @IsOptional()
   mimeType?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Duration in seconds (voice/videoNote)' })
+  @IsNumber()
+  @ValidateIf((o: CreateMessageDto) =>
+    [MessageType.VOICE, MessageType.VIDEO_NOTE].includes(o.type as MessageType),
+  )
   @IsOptional()
   duration?: number;
 
@@ -52,4 +68,11 @@ export class CreateMessageDto {
   @IsString()
   @IsOptional()
   thumbnailUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'View-once message (auto-deletes after viewing)',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isViewOnce?: boolean;
 }

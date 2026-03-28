@@ -19,7 +19,7 @@ interface ChatState {
   removeMessage: (messageId: string) => void
   setTyping: (chatId: string, userId: string, isTyping: boolean) => void
   createDM: (targetUserId: string) => Promise<Chat>
-  sendMessage: (chatId: string, content: string, type?: string) => Promise<void>
+  sendMessage: (chatId: string, content: string, type?: string, extra?: { fileUrl?: string; metadata?: Record<string, unknown> }) => Promise<void>
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -107,8 +107,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return data
   },
 
-  sendMessage: async (chatId: string, content: string, type = 'text') => {
-    const { data } = await api.post<Message>(`/chats/${chatId}/messages`, { content, type })
+  sendMessage: async (chatId: string, content: string, type = 'text', extra?: { fileUrl?: string; metadata?: Record<string, unknown> }) => {
+    const { data } = await api.post<Message>(`/chats/${chatId}/messages`, {
+      content,
+      type,
+      fileUrl: extra?.fileUrl,
+      metadata: extra?.metadata,
+    })
     get().addMessage(data)
   },
 }))

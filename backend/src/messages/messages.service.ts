@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,12 +13,19 @@ import { Chat } from '../chats/entities/chat.entity.js';
 import { ChatMember } from '../chats/entities/chat-member.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
+import { LinkPreviewService } from './link-preview.service.js';
 import { MessageType, SenderType, ChatMemberRole } from '../common/enums.js';
 
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
+const URL_REGEX = /https?:\/\/[^\s<>]+/gi;
+
 @Injectable()
 export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+
+  private messageEditEmitter: ((message: Message) => void) | null = null;
+
   constructor(
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
@@ -29,7 +37,12 @@ export class MessagesService {
     private readonly chatMemberRepo: Repository<ChatMember>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly linkPreviewService: LinkPreviewService,
   ) {}
+
+  setMessageEditEmitter(emitter: (message: Message) => void): void {
+    this.messageEditEmitter = emitter;
+  }
 
   async create(
     chatId: string,
@@ -49,16 +62,25 @@ export class MessagesService {
       mimeType: dto.mimeType ?? null,
       duration: dto.duration ?? null,
       thumbnailUrl: dto.thumbnailUrl ?? null,
+      isViewOnce: dto.isViewOnce ?? false,
     });
 
     const saved = await this.messageRepo.save(message);
 
     await this.chatRepo.update(chatId, { lastMessageAt: new Date() });
 
-    return this.messageRepo.findOne({
+    const fullMessage = (await this.messageRepo.findOne({
       where: { id: saved.id },
       relations: ['sender', 'replyTo'],
-    }) as Promise<Message>;
+    })) as Message;
+
+    if ((dto.type ?? MessageType.TEXT) === MessageType.TEXT && dto.content) {
+      this.fetchAndAttachLinkPreview(fullMessage.id, dto.content).catch((err) =>
+        this.logger.debug(`Link preview extraction failed: ${err}`),
+      );
+    }
+
+    return fullMessage;
   }
 
   async findByChatId(chatId: string, page = 1, limit = 50) {
@@ -345,5 +367,38 @@ export class MessagesService {
       select: ['userId'],
     });
     return members.map((m) => m.userId).filter((id) => id !== excludeUserId);
+  }
+
+  // ──── Link Preview (async, non-blocking) ────
+
+  private async fetchAndAttachLinkPreview(
+    messageId: string,
+    content: string,
+  ): Promise<void> {
+    const urls = content.match(URL_REGEX);
+    if (!urls || urls.length === 0) return;
+
+    const preview = await this.linkPreviewService.extractPreview(urls[0]);
+    if (!preview) return;
+
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!message) return;
+
+    message.metadata = {
+      ...message.metadata,
+      linkPreview: preview,
+    };
+    const updated = await this.messageRepo.save(message);
+
+    const fullMessage = await this.messageRepo.findOne({
+      where: { id: updated.id },
+      relations: ['sender', 'replyTo'],
+    });
+
+    if (fullMessage && this.messageEditEmitter) {
+      this.messageEditEmitter(fullMessage);
+    }
   }
 }
