@@ -1,27 +1,16 @@
-import { BellOff } from 'lucide-react'
+import { BellOff, BadgeCheck } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { usePresenceStore } from '../../stores/presenceStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Chat } from '../../types'
 
-interface ChatItemProps {
-  chat: Chat
-  isSelected: boolean
-  onClick: () => void
-}
+interface ChatItemProps { chat: Chat; isSelected: boolean; onClick: () => void }
 
 function formatTimestamp(dateStr: string): string {
   const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / 86_400_000)
-
-  if (diffDays === 0) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-  if (diffDays < 7) {
-    return date.toLocaleDateString([], { weekday: 'short' })
-  }
+  const diffDays = Math.floor((new Date().getTime() - date.getTime()) / 86_400_000)
+  if (diffDays === 0) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'short' })
   return date.toLocaleDateString([], { month: '2-digit', day: '2-digit' })
 }
 
@@ -29,104 +18,52 @@ function getChatDisplay(chat: Chat) {
   const isChannel = chat.type === 'channel'
   const isGroup = chat.type === 'group'
   const displayName = isChannel ? `# ${chat.name ?? 'channel'}` : chat.name ?? 'Chat'
-
-  const initials = isChannel
-    ? '#'
-    : (displayName
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase())
-
-  const colorMap: Record<string, string> = {
-    private: '#6366f1',
-    group: '#059669',
-    channel: '#8b5cf6',
-    bot: '#FF9220',
-  }
-
+  const initials = isChannel ? '#' : displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const colorMap: Record<string, string> = { private: '#6366f1', group: '#059669', channel: '#8b5cf6', bot: '#FF9220' }
   return { displayName, initials, isChannel, isGroup, color: colorMap[chat.type] ?? '#6366f1' }
 }
 
 export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
   const { displayName, initials, isChannel, isGroup, color } = getChatDisplay(chat)
-
   const members = (chat as any).members as { userId: string }[] | undefined
-  const otherUserId = chat.type === 'private' && members
-    ? members.find((m) => m.userId !== (chat as any).currentUserId)?.userId
-    : undefined
+  const otherUserId = chat.type === 'private' && members ? members.find((m) => m.userId !== (chat as any).currentUserId)?.userId : undefined
   const isOnline = usePresenceStore((s) => otherUserId ? s.onlineUsers.has(otherUserId) : false)
   const isDM = chat.type === 'private'
-
   const typingUsers = useChatStore((s) => s.typingUsers[chat.id] ?? [])
   const lastMsgText = chat.lastMessage?.content ?? ''
   const lastMsgTime = chat.lastMessage?.createdAt ?? chat.createdAt
-  const senderPrefix =
-    (isGroup || isChannel) && chat.lastMessage?.sender
-      ? `${chat.lastMessage.sender.firstName}: `
-      : ''
+  const senderPrefix = (isGroup || isChannel) && chat.lastMessage?.sender ? `${chat.lastMessage.sender.firstName}: ` : ''
+  const isVerified = isChannel || (chat as any).verified
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
-        isSelected ? 'bg-holio-lavender/30' : 'hover:bg-gray-50',
-      )}
-    >
-      <div className="relative flex-shrink-0">
-        {chat.avatarUrl ? (
-          <img
-            src={chat.avatarUrl}
-            alt={displayName}
-            className="h-12 w-12 rounded-full object-cover"
-          />
-        ) : (
-          <div
-            className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: color }}
-          >
-            {initials}
-          </div>
-        )}
-        {isDM && isOnline && (
-          <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <span className="truncate text-sm font-semibold text-holio-text">
-            {displayName}
-          </span>
-          <span className="ml-2 flex-shrink-0 text-xs text-holio-muted">
-            {formatTimestamp(lastMsgTime)}
-          </span>
+    <>
+      <button onClick={onClick} className={cn('flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors', isSelected ? 'bg-holio-lavender/30' : 'hover:bg-gray-50')}>
+        <div className="relative flex-shrink-0">
+          {chat.avatarUrl
+            ? <img src={chat.avatarUrl} alt={displayName} className="h-[54px] w-[54px] rounded-full object-cover" />
+            : <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full text-base font-semibold text-white" style={{ backgroundColor: color }}>{initials}</div>}
+          {isDM && isOnline && <div className="absolute right-0.5 bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />}
         </div>
-        <div className="flex items-center justify-between">
-          <p className="truncate text-xs text-holio-muted">
-            {typingUsers.length > 0 ? (
-              <span className="text-holio-orange">typing...</span>
-            ) : (
-              <>{senderPrefix}{lastMsgText}</>
-            )}
-          </p>
-          <div className="ml-2 flex flex-shrink-0 items-center gap-1">
-            {chat.muted && (
-              <BellOff className="h-3.5 w-3.5 text-holio-muted" />
-            )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-[15px] font-semibold text-holio-text">{displayName}</span>
+              {isVerified && <BadgeCheck className="h-4 w-4 flex-shrink-0 text-blue-500" />}
+              {chat.muted && <BellOff className="h-3.5 w-3.5 flex-shrink-0 text-holio-muted" />}
+            </div>
+            <span className="ml-2 flex-shrink-0 text-xs text-holio-muted">{formatTimestamp(lastMsgTime)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="truncate text-[13px] text-holio-muted">
+              {typingUsers.length > 0 ? <span className="text-holio-orange">typing...</span> : <>{senderPrefix}{lastMsgText}</>}
+            </p>
             {chat.unreadCount > 0 && (
-              <span className={cn(
-                'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium text-white',
-                chat.muted ? 'bg-gray-400' : 'bg-holio-orange',
-              )}>
-                {chat.unreadCount}
-              </span>
+              <span className={cn('ml-2 flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white', chat.muted ? 'bg-gray-400' : 'bg-holio-orange')}>{chat.unreadCount}</span>
             )}
           </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <div className="ml-[70px] h-px bg-gray-100" />
+    </>
   )
 }
