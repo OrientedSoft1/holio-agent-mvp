@@ -1,29 +1,61 @@
-import { Pin, VolumeX } from 'lucide-react'
 import { cn } from '../../lib/utils'
-
-export interface ChatItemData {
-  id: string
-  name: string
-  avatarUrl?: string | null
-  initials: string
-  avatarColor: string
-  lastMessage: string
-  timestamp: string
-  unreadCount: number
-  isPinned: boolean
-  isMuted: boolean
-  isOnline: boolean
-  isGroup: boolean
-  isChannel: boolean
-}
+import type { Chat } from '../../types'
 
 interface ChatItemProps {
-  chat: ChatItemData
+  chat: Chat
   isSelected: boolean
   onClick: () => void
 }
 
+function formatTimestamp(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / 86_400_000)
+
+  if (diffDays === 0) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  if (diffDays < 7) {
+    return date.toLocaleDateString([], { weekday: 'short' })
+  }
+  return date.toLocaleDateString([], { month: '2-digit', day: '2-digit' })
+}
+
+function getChatDisplay(chat: Chat) {
+  const isChannel = chat.type === 'channel'
+  const isGroup = chat.type === 'group'
+  const displayName = isChannel ? `# ${chat.name ?? 'channel'}` : chat.name ?? 'Chat'
+
+  const initials = isChannel
+    ? '#'
+    : (displayName
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase())
+
+  const colorMap: Record<string, string> = {
+    private: '#6366f1',
+    group: '#059669',
+    channel: '#8b5cf6',
+    bot: '#FF9220',
+  }
+
+  return { displayName, initials, isChannel, isGroup, color: colorMap[chat.type] ?? '#6366f1' }
+}
+
 export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
+  const { displayName, initials, isChannel, isGroup, color } = getChatDisplay(chat)
+
+  const lastMsgText = chat.lastMessage?.content ?? ''
+  const lastMsgTime = chat.lastMessage?.createdAt ?? chat.createdAt
+  const senderPrefix =
+    (isGroup || isChannel) && chat.lastMessage?.sender
+      ? `${chat.lastMessage.sender.firstName}: `
+      : ''
+
   return (
     <button
       onClick={onClick}
@@ -36,42 +68,33 @@ export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
         {chat.avatarUrl ? (
           <img
             src={chat.avatarUrl}
-            alt={chat.name}
+            alt={displayName}
             className="h-12 w-12 rounded-full object-cover"
           />
         ) : (
           <div
             className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: chat.avatarColor }}
+            style={{ backgroundColor: color }}
           >
-            {chat.isChannel ? '#' : chat.initials}
+            {initials}
           </div>
-        )}
-        {chat.isOnline && !chat.isGroup && !chat.isChannel && (
-          <div className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500" />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
           <span className="truncate text-sm font-semibold text-holio-text">
-            {chat.name}
+            {displayName}
           </span>
           <span className="ml-2 flex-shrink-0 text-xs text-holio-muted">
-            {chat.timestamp}
+            {formatTimestamp(lastMsgTime)}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <p className="truncate text-xs text-holio-muted">
-            {chat.lastMessage}
+            {senderPrefix}{lastMsgText}
           </p>
           <div className="ml-2 flex flex-shrink-0 items-center gap-1">
-            {chat.isPinned && (
-              <Pin className="h-3 w-3 text-holio-muted" />
-            )}
-            {chat.isMuted && (
-              <VolumeX className="h-3 w-3 text-holio-muted" />
-            )}
             {chat.unreadCount > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-holio-orange px-1.5 text-[11px] font-medium text-white">
                 {chat.unreadCount}

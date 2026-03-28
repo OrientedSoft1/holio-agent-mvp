@@ -1,12 +1,12 @@
 import { X, Bell, Image, File, Play, Link, ChevronRight, UserPlus, Pencil, Trash2, Ban } from 'lucide-react'
 import { useUiStore } from '../../stores/uiStore'
-import type { ChatItemData } from './ChatItem'
+import { useChatStore } from '../../stores/chatStore'
 
 const MEDIA_STATS = [
-  { label: 'Photos', count: 43, icon: Image },
-  { label: 'Videos', count: 22, icon: Play },
-  { label: 'Files', count: 54, icon: File },
-  { label: 'Links', count: 18, icon: Link },
+  { label: 'Photos', count: 0, icon: Image },
+  { label: 'Videos', count: 0, icon: Play },
+  { label: 'Files', count: 0, icon: File },
+  { label: 'Links', count: 0, icon: Link },
 ]
 
 const ACTIONS = [
@@ -16,20 +16,32 @@ const ACTIONS = [
   { label: 'Delete contact', icon: Trash2, variant: 'danger' as const },
 ]
 
-interface InfoPanelProps {
-  activeChat: ChatItemData | null
-}
-
-export default function InfoPanel({ activeChat }: InfoPanelProps) {
+export default function InfoPanel() {
   const setShowInfoPanel = useUiStore((s) => s.setShowInfoPanel)
+  const activeChat = useChatStore((s) => s.activeChat)
 
   if (!activeChat) return null
+
+  const isChannel = activeChat.type === 'channel'
+  const isGroupLike = activeChat.type === 'group' || isChannel
+  const displayName = isChannel ? `# ${activeChat.name ?? 'channel'}` : activeChat.name ?? 'Chat'
+  const initials = isChannel
+    ? '#'
+    : displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+
+  const colorMap: Record<string, string> = {
+    private: '#6366f1',
+    group: '#059669',
+    channel: '#8b5cf6',
+    bot: '#FF9220',
+  }
+  const avatarColor = colorMap[activeChat.type] ?? '#6366f1'
 
   return (
     <div className="flex h-screen w-[300px] flex-shrink-0 flex-col border-l border-gray-100 bg-white">
       <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
         <h3 className="text-sm font-semibold text-holio-text">
-          {activeChat.isGroup || activeChat.isChannel ? 'Group Info' : 'Contact Info'}
+          {isGroupLike ? 'Group Info' : 'Contact Info'}
         </h3>
         <button
           onClick={() => setShowInfoPanel(false)}
@@ -44,38 +56,21 @@ export default function InfoPanel({ activeChat }: InfoPanelProps) {
           {activeChat.avatarUrl ? (
             <img
               src={activeChat.avatarUrl}
-              alt={activeChat.name}
+              alt={displayName}
               className="h-20 w-20 rounded-full object-cover"
             />
           ) : (
             <div
               className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
-              style={{ backgroundColor: activeChat.avatarColor }}
+              style={{ backgroundColor: avatarColor }}
             >
-              {activeChat.isChannel ? '#' : activeChat.initials}
+              {initials}
             </div>
           )}
           <h4 className="mt-3 text-base font-semibold text-holio-text">
-            {activeChat.name}
+            {displayName}
           </h4>
-          <p className="text-xs text-holio-muted">
-            {activeChat.isOnline ? 'online' : 'last seen recently'}
-          </p>
-        </div>
-
-        <div className="space-y-1 border-t border-gray-100 px-4 py-3">
-          <div className="py-1.5">
-            <p className="text-xs text-holio-muted">Phone</p>
-            <p className="text-sm text-holio-text">+1 (555) 123-4567</p>
-          </div>
-          <div className="py-1.5">
-            <p className="text-xs text-holio-muted">Username</p>
-            <p className="text-sm text-holio-text">@{activeChat.name.toLowerCase().replace(/\s/g, '')}</p>
-          </div>
-          <div className="py-1.5">
-            <p className="text-xs text-holio-muted">Bio</p>
-            <p className="text-sm text-holio-text">Product designer at Holio</p>
-          </div>
+          <p className="text-xs text-holio-muted">online</p>
         </div>
 
         <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">

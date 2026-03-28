@@ -14,6 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { ChatsService } from '../chats/chats.service.js';
 import { MessagesService } from '../messages/messages.service.js';
+import { UsersService } from '../users/users.service.js';
 
 interface AuthPayload {
   sub: string;
@@ -37,6 +38,7 @@ export class AppGateway
     private readonly jwtService: JwtService,
     private readonly chatsService: ChatsService,
     private readonly messagesService: MessagesService,
+    private readonly usersService: UsersService,
   ) {}
 
   afterInit() {
@@ -63,6 +65,8 @@ export class AppGateway
 
       await this.joinUserRooms(userId, client);
 
+      await this.usersService.setOnline(userId);
+
       this.logger.log(`Client connected: ${client.id} (user: ${userId})`);
 
       this.server.emit('presence:update', {
@@ -75,11 +79,13 @@ export class AppGateway
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     const userId = this.socketUsers.get(client.id);
     if (userId) {
       this.userSockets.delete(userId);
       this.socketUsers.delete(client.id);
+
+      await this.usersService.setOffline(userId);
 
       this.server.emit('presence:update', {
         userId,
@@ -127,6 +133,18 @@ export class AppGateway
 
     this.server.to(`chat:${data.chatId}`).emit('message:new', message);
 
+    const recipientIds = await this.messagesService.getChatMemberIdsExcept(
+      data.chatId,
+      userId,
+    );
+    const isDelivered = recipientIds.some((id) => this.userSockets.has(id));
+    if (isDelivered) {
+      client.emit('message:status', {
+        messageId: message.id,
+        status: 'delivered',
+      });
+    }
+
     return message;
   }
 
@@ -168,22 +186,75 @@ export class AppGateway
   @SubscribeMessage('message:read')
   async handleMessageRead(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string; chatId: string },
+    @MessageBody() data: { chatId: string },
   ) {
     const userId = this.getSocketUserId(client);
 
-    const receipt = await this.messagesService.markAsRead(
+    const { receipts, senderMessageIds } =
+      await this.messagesService.markChatAsRead(data.chatId, userId);
+
+    for (const receipt of receipts) {
+      this.server.to(`chat:${data.chatId}`).emit('message:read', {
+        messageId: receipt.messageId,
+        userId,
+        readAt: receipt.readAt,
+      });
+    }
+
+    for (const [senderId, messageIds] of senderMessageIds.entries()) {
+      const senderSocketId = this.userSockets.get(senderId);
+      if (senderSocketId) {
+        this.server.to(senderSocketId).emit('message:status', {
+          chatId: data.chatId,
+          messageIds,
+          status: 'read',
+          readBy: userId,
+        });
+      }
+    }
+
+    return { marked: receipts.length };
+  }
+
+  // ──── Pin ────
+
+  @SubscribeMessage('message:pin')
+  async handleMessagePin(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string },
+  ) {
+    const userId = this.getSocketUserId(client);
+
+    const message = await this.messagesService.pin(data.messageId, userId);
+
+    this.server.to(`chat:${message.chatId}`).emit('message:pin', {
+      messageId: message.id,
+      chatId: message.chatId,
+      isPinned: message.isPinned,
+      pinnedBy: userId,
+    });
+
+    return message;
+  }
+
+  // ──── Forward ────
+
+  @SubscribeMessage('message:forward')
+  async handleMessageForward(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string; targetChatId: string },
+  ) {
+    const userId = this.getSocketUserId(client);
+
+    const message = await this.messagesService.forward(
+      data.targetChatId,
       data.messageId,
       userId,
     );
 
-    this.server.to(`chat:${data.chatId}`).emit('message:read', {
-      messageId: data.messageId,
-      userId,
-      readAt: receipt.readAt,
-    });
+    this.server.to(`chat:${data.targetChatId}`).emit('message:new', message);
 
-    return receipt;
+    return message;
   }
 
   // ──── Typing ────

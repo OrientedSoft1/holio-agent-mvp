@@ -9,8 +9,10 @@ import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity.js';
 import { ReadReceipt } from './entities/read-receipt.entity.js';
 import { Chat } from '../chats/entities/chat.entity.js';
+import { ChatMember } from '../chats/entities/chat-member.entity.js';
+import { User } from '../users/entities/user.entity.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
-import { MessageType, SenderType } from '../common/enums.js';
+import { MessageType, SenderType, ChatMemberRole } from '../common/enums.js';
 
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
@@ -23,6 +25,10 @@ export class MessagesService {
     private readonly receiptRepo: Repository<ReadReceipt>,
     @InjectRepository(Chat)
     private readonly chatRepo: Repository<Chat>,
+    @InjectRepository(ChatMember)
+    private readonly chatMemberRepo: Repository<ChatMember>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   async create(
@@ -149,5 +155,195 @@ export class MessagesService {
     }
 
     return qb.getCount();
+  }
+
+  // ──── Pin ────
+
+  async pin(messageId: string, userId: string): Promise<Message> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    const member = await this.chatMemberRepo.findOne({
+      where: { chatId: message.chatId, userId },
+    });
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this chat');
+    }
+    if (
+      member.role !== ChatMemberRole.OWNER &&
+      member.role !== ChatMemberRole.ADMIN
+    ) {
+      throw new ForbiddenException('Only admins and owners can pin messages');
+    }
+
+    message.isPinned = !message.isPinned;
+    return this.messageRepo.save(message);
+  }
+
+  // ──── Forward ────
+
+  async forward(
+    targetChatId: string,
+    messageId: string,
+    userId: string,
+  ): Promise<Message> {
+    const original = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!original) {
+      throw new NotFoundException('Original message not found');
+    }
+
+    const targetChat = await this.chatRepo.findOne({
+      where: { id: targetChatId },
+    });
+    if (!targetChat) {
+      throw new NotFoundException('Target chat not found');
+    }
+
+    const membership = await this.chatMemberRepo.findOne({
+      where: { chatId: targetChatId, userId },
+    });
+    if (!membership) {
+      throw new ForbiddenException('You are not a member of the target chat');
+    }
+
+    const forwarded = this.messageRepo.create({
+      chatId: targetChatId,
+      senderId: userId,
+      senderType: SenderType.USER,
+      type: original.type,
+      content: original.content,
+      fileUrl: original.fileUrl,
+      fileName: original.fileName,
+      fileSize: original.fileSize,
+      mimeType: original.mimeType,
+      duration: original.duration,
+      thumbnailUrl: original.thumbnailUrl,
+      forwardedFromId: original.id,
+    });
+
+    const saved = await this.messageRepo.save(forwarded);
+
+    await this.chatRepo.update(targetChatId, { lastMessageAt: new Date() });
+
+    return this.messageRepo.findOne({
+      where: { id: saved.id },
+      relations: ['sender', 'forwardedFrom'],
+    }) as Promise<Message>;
+  }
+
+  // ──── Message Status / Ticks ────
+
+  async getMessageStatus(
+    messageId: string,
+  ): Promise<'sent' | 'delivered' | 'read'> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    const receiptCount = await this.receiptRepo.count({
+      where: { messageId },
+    });
+    if (receiptCount > 0) {
+      return 'read';
+    }
+
+    return 'sent';
+  }
+
+  async getReadReceipts(messageId: string): Promise<ReadReceipt[]> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    return this.receiptRepo.find({
+      where: { messageId },
+      relations: ['user'],
+      order: { readAt: 'ASC' },
+    });
+  }
+
+  async markChatAsRead(
+    chatId: string,
+    userId: string,
+  ): Promise<{
+    receipts: ReadReceipt[];
+    senderMessageIds: Map<string, string[]>;
+  }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const unreadMessages = await this.messageRepo
+      .createQueryBuilder('msg')
+      .leftJoin(
+        ReadReceipt,
+        'rr',
+        'rr."messageId" = msg.id AND rr."userId" = :userId',
+        { userId },
+      )
+      .where('msg."chatId" = :chatId', { chatId })
+      .andWhere('msg."senderId" != :userId', { userId })
+      .andWhere('rr.id IS NULL')
+      .getMany();
+
+    if (unreadMessages.length === 0) {
+      return { receipts: [], senderMessageIds: new Map() };
+    }
+
+    const receipts: ReadReceipt[] = [];
+    const senderMessageIds = new Map<string, string[]>();
+
+    for (const msg of unreadMessages) {
+      const sender = await this.userRepo.findOne({
+        where: { id: msg.senderId },
+      });
+      const senderPrivacy = sender?.privacySettings as Record<string, unknown>;
+
+      if (senderPrivacy?.readReceipts === false) {
+        continue;
+      }
+
+      const receipt = this.receiptRepo.create({ messageId: msg.id, userId });
+      receipts.push(receipt);
+
+      const existing = senderMessageIds.get(msg.senderId) ?? [];
+      existing.push(msg.id);
+      senderMessageIds.set(msg.senderId, existing);
+    }
+
+    if (receipts.length > 0) {
+      await this.receiptRepo.save(receipts);
+    }
+
+    return { receipts, senderMessageIds };
+  }
+
+  /**
+   * Check if a message is "delivered" by seeing if the recipient
+   * (any member except sender) has an active socket connection.
+   * Called by the gateway which owns the socket map.
+   */
+  async getChatMemberIdsExcept(
+    chatId: string,
+    excludeUserId: string,
+  ): Promise<string[]> {
+    const members = await this.chatMemberRepo.find({
+      where: { chatId },
+      select: ['userId'],
+    });
+    return members.map((m) => m.userId).filter((id) => id !== excludeUserId);
   }
 }

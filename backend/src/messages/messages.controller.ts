@@ -17,6 +17,7 @@ import { MessagesService } from './messages.service.js';
 import { ChatsService } from '../chats/chats.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { UpdateMessageDto } from './dto/update-message.dto.js';
+import { ForwardMessageDto } from './dto/forward-message.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { User } from '../users/entities/user.entity.js';
@@ -73,5 +74,38 @@ export class MessagesController {
   @ApiOperation({ summary: 'Delete a message' })
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
     return this.messagesService.remove(id, user.id);
+  }
+
+  @Post('messages/:id/pin')
+  @ApiOperation({ summary: 'Toggle pin status on a message' })
+  pin(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.messagesService.pin(id, user.id);
+  }
+
+  @Post('messages/forward')
+  @ApiOperation({ summary: 'Forward a message to another chat' })
+  forward(@CurrentUser() user: User, @Body() dto: ForwardMessageDto) {
+    return this.messagesService.forward(
+      dto.targetChatId,
+      dto.messageId,
+      user.id,
+    );
+  }
+
+  @Post('chats/:chatId/read')
+  @ApiOperation({ summary: 'Mark all messages in a chat as read' })
+  async markChatAsRead(
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.chatsService.checkMembership(chatId, user.id);
+    const result = await this.messagesService.markChatAsRead(chatId, user.id);
+    return { marked: result.receipts.length };
+  }
+
+  @Get('messages/:id/read-receipts')
+  @ApiOperation({ summary: 'Get read receipts for a message' })
+  getReadReceipts(@Param('id', ParseUUIDPipe) id: string) {
+    return this.messagesService.getReadReceipts(id);
   }
 }
