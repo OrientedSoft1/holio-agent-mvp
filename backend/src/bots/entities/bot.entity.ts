@@ -28,7 +28,7 @@ export class Bot {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   avatarUrl: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -49,7 +49,7 @@ export class Bot {
   @Column({ default: 2048 })
   maxTokens: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   knowledgeBaseId: string | null;
 
   @Column({ type: 'jsonb', default: [] })

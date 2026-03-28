@@ -28,7 +28,7 @@ export class BotTemplate {
   @Column({ type: 'jsonb', default: [] })
   defaultTools: unknown[];
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   iconUrl: string | null;
 
   @CreateDateColumn()

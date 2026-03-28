@@ -15,7 +15,7 @@ export class AuthController {
   @Public()
   @Post('send-code')
   @ApiOperation({ summary: 'Send verification code to phone number' })
-  sendCode(@Body() dto: SendCodeDto) {
+  async sendCode(@Body() dto: SendCodeDto) {
     return this.authService.sendCode(dto);
   }
 

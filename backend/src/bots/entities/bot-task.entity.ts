@@ -54,13 +54,13 @@ export class BotTask {
   @Column({ type: 'text', nullable: true })
   output: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   tokensUsed: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   durationMs: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   error: string | null;
 
   @CreateDateColumn()
