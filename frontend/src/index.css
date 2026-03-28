@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-holio-orange: #FF9220;
+  --color-holio-dark: #152022;
+  --color-holio-lavender: #D1CBFB;
+  --color-holio-sage: #C6D5BA;
+  --color-holio-offwhite: #FCFCF8;
+  --color-holio-text: #1A1A1A;
+  --color-holio-muted: #8E8E93;
+}
