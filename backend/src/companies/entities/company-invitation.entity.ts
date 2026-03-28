@@ -31,10 +31,10 @@ export class CompanyInvitation {
   @JoinColumn({ name: 'invitedByUserId' })
   invitedBy: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   email: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone: string | null;
 
   @Index()

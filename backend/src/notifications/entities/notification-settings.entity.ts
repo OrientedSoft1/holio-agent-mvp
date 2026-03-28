@@ -18,6 +18,6 @@ export class NotificationSettings {
   @Column({ type: 'timestamptz', nullable: true })
   mutedUntil: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   customSound: string | null;
 }

@@ -13,63 +13,48 @@ import { User } from '../users/entities/user.entity.js';
 import { SendCodeDto } from './dto/send-code.dto.js';
 import { VerifyCodeDto } from './dto/verify-code.dto.js';
 import { Verify2faDto } from './dto/verify-2fa.dto.js';
-
-interface StoredCode {
-  code: string;
-  expiresAt: Date;
-  attempts: number;
-  lockedUntil?: Date;
-}
+import { SmsService } from './sms.service.js';
+import { OtpStoreService } from './otp-store.service.js';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly verificationCodes = new Map<string, StoredCode>();
 
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly smsService: SmsService,
+    private readonly otpStore: OtpStoreService,
   ) {}
 
-  sendCode(dto: SendCodeDto) {
+  async sendCode(dto: SendCodeDto) {
     const phoneKey = `${dto.countryCode}${dto.phone}`;
-    const existing = this.verificationCodes.get(phoneKey);
+    const existing = await this.otpStore.get(phoneKey);
 
-    if (existing?.lockedUntil && existing.lockedUntil > new Date()) {
+    if (existing && this.otpStore.isLocked(existing)) {
       throw new ForbiddenException(
         'Too many attempts. Please try again in 24 hours.',
       );
     }
 
-    if (existing && existing.attempts >= 5) {
-      const lockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      this.verificationCodes.set(phoneKey, {
-        ...existing,
-        lockedUntil,
-      });
+    if (existing && this.otpStore.isMaxAttempts(existing)) {
+      await this.otpStore.lock(phoneKey);
       throw new ForbiddenException(
         'Too many attempts. Please try again in 24 hours.',
       );
     }
 
     const code = String(Math.floor(10000 + Math.random() * 90000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    this.verificationCodes.set(phoneKey, {
-      code,
-      expiresAt,
-      attempts: existing ? existing.attempts + 1 : 1,
-    });
-
-    this.logger.log(`[DEV] Verification code for ${phoneKey}: ${code}`);
+    await this.otpStore.store(phoneKey, code);
+    await this.smsService.sendOtp(phoneKey, code);
 
     return { message: 'Code sent' };
   }
 
   async verifyCode(dto: VerifyCodeDto) {
     const phoneKey = `${dto.countryCode}${dto.phone}`;
-    const stored = this.verificationCodes.get(phoneKey);
+    const stored = await this.otpStore.get(phoneKey);
 
     if (!stored) {
       throw new BadRequestException(
@@ -77,28 +62,28 @@ export class AuthService {
       );
     }
 
-    if (stored.lockedUntil && stored.lockedUntil > new Date()) {
+    if (this.otpStore.isLocked(stored)) {
       throw new ForbiddenException(
         'Too many attempts. Please try again in 24 hours.',
       );
     }
 
-    if (stored.expiresAt < new Date()) {
-      this.verificationCodes.delete(phoneKey);
+    if (this.otpStore.isExpired(stored)) {
+      await this.otpStore.delete(phoneKey);
       throw new BadRequestException(
         'Verification code expired. Request a new one.',
       );
     }
 
     if (stored.code !== dto.code) {
-      stored.attempts += 1;
-      if (stored.attempts >= 5) {
-        stored.lockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const attempts = await this.otpStore.incrementAttempts(phoneKey);
+      if (attempts >= 5) {
+        await this.otpStore.lock(phoneKey);
       }
       throw new BadRequestException('Invalid verification code.');
     }
 
-    this.verificationCodes.delete(phoneKey);
+    await this.otpStore.delete(phoneKey);
 
     let user = await this.usersRepository.findOne({
       where: { phone: dto.phone, countryCode: dto.countryCode },
