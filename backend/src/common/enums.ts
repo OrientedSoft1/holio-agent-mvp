@@ -17,3 +17,38 @@ export enum InvitationStatus {
   DECLINED = 'declined',
   EXPIRED = 'expired',
 }
+
+export enum ChatType {
+  DM = 'dm',
+  GROUP = 'group',
+  COMPANY_CHANNEL = 'companyChannel',
+  CROSS_COMPANY = 'crossCompany',
+}
+
+export enum MessageType {
+  TEXT = 'text',
+  IMAGE = 'image',
+  VOICE = 'voice',
+  VIDEO_NOTE = 'videoNote',
+  FILE = 'file',
+  GIF = 'gif',
+  STICKER = 'sticker',
+  POLL = 'poll',
+  CONTACT = 'contact',
+  LOCATION = 'location',
+  BOT_ACTION = 'botAction',
+  BOT_RESULT = 'botResult',
+  SYSTEM = 'system',
+}
+
+export enum SenderType {
+  USER = 'user',
+  BOT = 'bot',
+  SYSTEM = 'system',
+}
+
+export enum ChatMemberRole {
+  OWNER = 'owner',
+  ADMIN = 'admin',
+  MEMBER = 'member',
+}

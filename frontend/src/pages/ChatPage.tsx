@@ -1,15 +1,24 @@
+import { useState } from 'react'
+import Sidebar from '../components/layout/Sidebar'
+import ChatListPanel from '../components/chat/ChatListPanel'
+import ChatViewPanel from '../components/chat/ChatViewPanel'
+import InfoPanel from '../components/chat/InfoPanel'
+import { useUiStore } from '../stores/uiStore'
+import type { ChatItemData } from '../components/chat/ChatItem'
+
 export default function ChatPage() {
+  const showInfoPanel = useUiStore((s) => s.showInfoPanel)
+  const [activeChat, setActiveChat] = useState<ChatItemData | null>(null)
+
   return (
-    <div className="flex h-screen bg-holio-offwhite">
-      <aside className="w-80 border-r border-gray-200 bg-white">
-        <div className="flex h-14 items-center border-b border-gray-200 px-4">
-          <h1 className="text-lg font-bold text-holio-text">HOLIO</h1>
-        </div>
-        <p className="p-4 text-sm text-holio-muted">Chat list coming soon</p>
-      </aside>
-      <main className="flex flex-1 items-center justify-center">
-        <p className="text-holio-muted">Select a chat to start messaging</p>
-      </main>
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <ChatListPanel
+        selectedChatId={activeChat?.id ?? null}
+        onSelectChat={setActiveChat}
+      />
+      <ChatViewPanel activeChat={activeChat} />
+      {showInfoPanel && <InfoPanel activeChat={activeChat} />}
     </div>
   )
 }
