@@ -4,9 +4,11 @@ import ChatHeader from './ChatHeader'
 import MessageBubble from './MessageBubble'
 import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
+import InChatSearch from '../search/InChatSearch'
 import TypingIndicator from './TypingIndicator'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useUiStore } from '../../stores/uiStore'
 import { usePresenceStore } from '../../stores/presenceStore'
 import { getSocket } from '../../services/socket.service'
 import type { Chat } from '../../types'
@@ -56,6 +58,8 @@ export default function ChatViewPanel() {
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
   const currentUserId = useAuthStore((s) => s.user?.id)
+  const showInChatSearch = useUiStore((s) => s.showInChatSearch)
+  const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
@@ -120,6 +124,14 @@ export default function ChatViewPanel() {
         status={statusText}
         isOnline={isOnline}
       />
+
+      {showInChatSearch && (
+        <InChatSearch
+          chatId={activeChat.id}
+          open={showInChatSearch}
+          onClose={() => setShowInChatSearch(false)}
+        />
+      )}
 
       <div ref={scrollRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-6 py-4">
         {messagesLoading && (
