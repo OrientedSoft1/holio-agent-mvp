@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   ArrowLeft,
+  ShieldCheck,
   Lock,
   Phone,
   MoreVertical,
-  Clock,
-  Search,
+  Timer,
+  X,
   Check,
-  CheckCheck,
 } from 'lucide-react'
 import MessageBubble from './MessageBubble'
 import DateSeparator from './DateSeparator'
@@ -17,10 +17,17 @@ import InChatSearch from '../search/InChatSearch'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
-import { usePresenceStore } from '../../stores/presenceStore'
 import { getSocket } from '../../services/socket.service'
 import { cn } from '../../lib/utils'
-import type { Chat } from '../../types'
+
+interface SecretChatViewProps {
+  chatId: string
+  peerName: string
+  peerAvatar?: string | null
+  peerStatus?: string
+  isOnline?: boolean
+  onBack?: () => void
+}
 
 const SELF_DESTRUCT_OPTIONS = [
   { label: 'Off', value: 0 },
@@ -39,13 +46,19 @@ function groupMessagesByDate(messages: { createdAt: string }[]) {
 
   messages.forEach((msg, i) => {
     const date = new Date(msg.createdAt)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / 86_400_000)
+    const diffDays = Math.floor(
+      (new Date().getTime() - date.getTime()) / 86_400_000,
+    )
 
     let label: string
     if (diffDays === 0) label = 'Today'
     else if (diffDays === 1) label = 'Yesterday'
-    else label = date.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })
+    else
+      label = date.toLocaleDateString([], {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
 
     if (label !== lastLabel) {
       groups.push({ label, indices: [i] })
@@ -58,8 +71,14 @@ function groupMessagesByDate(messages: { createdAt: string }[]) {
   return groups
 }
 
-export default function SecretChatView() {
-  const activeChat = useChatStore((s) => s.activeChat)
+export default function SecretChatView({
+  chatId,
+  peerName,
+  peerAvatar,
+  peerStatus,
+  isOnline = false,
+  onBack,
+}: SecretChatViewProps) {
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
   const currentUserId = useAuthStore((s) => s.user?.id)
@@ -68,6 +87,7 @@ export default function SecretChatView() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
+  const [showBanner, setShowBanner] = useState(true)
   const [selfDestructTime, setSelfDestructTime] = useState(0)
   const [showTimerMenu, setShowTimerMenu] = useState(false)
 
@@ -77,7 +97,7 @@ export default function SecretChatView() {
   }, [messages])
 
   useEffect(() => {
-    if (!activeChat || !messages.length || !currentUserId) return
+    if (!messages.length || !currentUserId) return
     const lastMsg = messages[messages.length - 1]
     if (lastMsg.senderId === currentUserId) return
     if (lastReadRef.current === lastMsg.id) return
@@ -85,44 +105,42 @@ export default function SecretChatView() {
     lastReadRef.current = lastMsg.id
     const socket = getSocket()
     if (socket) {
-      socket.emit('message:read', { chatId: activeChat.id, messageId: lastMsg.id })
+      socket.emit('message:read', { chatId, messageId: lastMsg.id })
     }
-  }, [activeChat, messages, currentUserId])
+  }, [chatId, messages, currentUserId])
 
-  if (!activeChat) return null
-
-  const displayName = activeChat.name ?? 'Secret Chat'
-  const initials = displayName
+  const initials = peerName
     .split(' ')
     .map((w) => w[0])
     .join('')
     .slice(0, 2)
     .toUpperCase()
+
+  const statusText = peerStatus ?? (isOnline ? 'online' : '')
   const dateGroups = groupMessagesByDate(messages)
-
-  const chatMembers = (activeChat as any).members as { userId: string }[] | undefined
-  const otherUserId = chatMembers?.find((m) => m.userId !== currentUserId)?.userId
-  const peerOnline = usePresenceStore((s) => otherUserId ? s.onlineUsers.has(otherUserId) : false)
-  const peerLastSeen = usePresenceStore((s) => otherUserId ? s.lastSeen[otherUserId] : undefined)
-
-  const statusText = peerOnline
-    ? 'online'
-    : peerLastSeen
-      ? `last seen ${new Date(peerLastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-      : ''
+  const activeTimerLabel =
+    selfDestructTime > 0
+      ? SELF_DESTRUCT_OPTIONS.find((o) => o.value === selfDestructTime)?.label
+      : null
 
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite">
+      {/* Header */}
       <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
         <div className="flex items-center gap-3">
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <div className="relative">
-            {activeChat.avatarUrl ? (
+            {peerAvatar ? (
               <img
-                src={activeChat.avatarUrl}
-                alt={displayName}
+                src={peerAvatar}
+                alt={peerName}
                 className="h-10 w-10 rounded-full object-cover"
               />
             ) : (
@@ -130,31 +148,140 @@ export default function SecretChatView() {
                 {initials}
               </div>
             )}
-            <div className="absolute right-0 bottom-0 rounded-full bg-holio-sage p-0.5">
-              <Lock className="h-2.5 w-2.5 text-white" />
-            </div>
+            {isOnline && (
+              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-semibold text-holio-text">{displayName}</h3>
-              <Lock className="h-3.5 w-3.5 text-holio-sage" />
+              <ShieldCheck className="h-3.5 w-3.5 text-holio-sage" />
+              <h3 className="text-sm font-semibold text-holio-sage">
+                {peerName}
+              </h3>
             </div>
-            <p className="text-xs text-holio-muted">{statusText}</p>
+            {statusText && (
+              <p className="text-xs text-holio-muted">{statusText}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <div className="relative">
+          {[Phone, MoreVertical].map((Icon, i) => (
             <button
-              onClick={() => setShowTimerMenu(!showTimerMenu)}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-gray-50',
-                selfDestructTime > 0 ? 'text-holio-orange' : 'text-holio-muted hover:text-holio-text',
-              )}
+              key={i}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
             >
-              <Clock className="h-5 w-5" />
+              <Icon className="h-5 w-5" />
             </button>
-            {showTimerMenu && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+          ))}
+        </div>
+      </div>
+
+      {/* Dismissible encryption banner */}
+      {showBanner && (
+        <div className="flex items-center justify-center gap-1.5 bg-holio-sage/20 py-2">
+          <Lock className="h-3.5 w-3.5 text-holio-sage" />
+          <span className="text-xs text-holio-sage">
+            Messages are end-to-end encrypted
+          </span>
+          <button
+            onClick={() => setShowBanner(false)}
+            className="ml-2 rounded-full p-0.5 text-holio-sage/60 transition-colors hover:text-holio-sage"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {showInChatSearch && (
+        <InChatSearch
+          chatId={chatId}
+          open={showInChatSearch}
+          onClose={() => setShowInChatSearch(false)}
+        />
+      )}
+
+      {/* Messages area with lavender gradient */}
+      <div
+        ref={scrollRef}
+        className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-lavender/20 to-holio-lavender/10 px-4 py-4"
+      >
+        {messagesLoading && (
+          <div className="flex justify-center py-4">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        )}
+
+        {dateGroups.map((group) => (
+          <div key={group.label}>
+            <DateSeparator label={group.label} />
+            {group.indices.map((idx) => {
+              const msg = messages[idx]
+              const msgRecord = msg as unknown as Record<string, unknown>
+              return (
+                <MessageBubble
+                  key={msg.id}
+                  rawMessage={msg}
+                  message={{
+                    id: msg.id,
+                    content: msg.content,
+                    timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                    isMine: msg.senderId === currentUserId,
+                    senderName: msg.sender?.firstName,
+                    isRead: !!msgRecord.isRead || !!msgRecord.readAt,
+                    isGroup: false,
+                    type: msg.type,
+                    fileUrl: msg.fileUrl,
+                    metadata: msg.metadata,
+                    reactions: msg.reactions,
+                    scheduledAt: msg.scheduledAt,
+                    currentUserId,
+                  }}
+                />
+              )
+            })}
+          </div>
+        ))}
+      </div>
+
+      <TypingIndicator chatId={chatId} />
+
+      {/* Input area with self-destruct timer */}
+      <div className="flex items-center gap-0 bg-white">
+        <div className="relative">
+          <button
+            onClick={() => setShowTimerMenu(!showTimerMenu)}
+            className={cn(
+              'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-50 ml-2',
+              selfDestructTime > 0
+                ? 'text-holio-orange'
+                : 'text-holio-muted hover:text-holio-text',
+            )}
+            title={
+              activeTimerLabel
+                ? `Self-destruct: ${activeTimerLabel}`
+                : 'Set self-destruct timer'
+            }
+          >
+            <Timer className="h-5 w-5" />
+            {activeTimerLabel && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-holio-orange px-1 text-[9px] font-bold text-white">
+                {activeTimerLabel}
+              </span>
+            )}
+          </button>
+          {showTimerMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowTimerMenu(false)}
+              />
+              <div className="absolute bottom-full left-0 z-50 mb-2 w-44 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-holio-muted">
+                  Self-destruct timer
+                </p>
                 {SELF_DESTRUCT_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
@@ -176,75 +303,13 @@ export default function SecretChatView() {
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-          {[Phone, MoreVertical].map((Icon, i) => (
-            <button
-              key={i}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <Icon className="h-5 w-5" />
-            </button>
-          ))}
+            </>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <MessageInput chatId={chatId} />
         </div>
       </div>
-
-      <div className="flex items-center justify-center gap-1.5 bg-holio-sage/10 py-2">
-        <Lock className="h-3.5 w-3.5 text-holio-sage" />
-        <span className="text-xs text-holio-sage">Messages are end-to-end encrypted</span>
-      </div>
-
-      {showInChatSearch && (
-        <InChatSearch
-          chatId={activeChat.id}
-          open={showInChatSearch}
-          onClose={() => setShowInChatSearch(false)}
-        />
-      )}
-
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-6 py-4">
-        {messagesLoading && (
-          <div className="flex justify-center py-4">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
-          </div>
-        )}
-
-        {dateGroups.map((group) => (
-          <div key={group.label}>
-            <DateSeparator label={group.label} />
-            {group.indices.map((idx) => {
-              const msg = messages[idx]
-              return (
-                <MessageBubble
-                  key={msg.id}
-                  rawMessage={msg}
-                  message={{
-                    id: msg.id,
-                    content: msg.content,
-                    timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }),
-                    isMine: msg.senderId === currentUserId,
-                    senderName: msg.sender?.firstName,
-                    isRead: !!(msg as any).isRead || !!(msg as any).readAt,
-                    isGroup: false,
-                    type: msg.type,
-                    fileUrl: msg.fileUrl,
-                    metadata: msg.metadata,
-                    reactions: msg.reactions,
-                    scheduledAt: msg.scheduledAt,
-                    currentUserId,
-                  }}
-                />
-              )
-            })}
-          </div>
-        ))}
-      </div>
-
-      <TypingIndicator chatId={activeChat.id} />
-      <MessageInput chatId={activeChat.id} />
     </div>
   )
 }
