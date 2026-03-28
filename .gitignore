@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+coverage/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+uploads/
+*.min.js
+*.map
+*.bundle.js
+.cache/
+.turbo/
