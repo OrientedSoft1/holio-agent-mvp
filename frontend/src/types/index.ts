@@ -49,6 +49,17 @@ export interface Message {
   sender: User
 }
 
+export interface CompanyInvitation {
+  id: string
+  companyId: string
+  phone: string | null
+  email: string | null
+  role: 'admin' | 'member' | 'guest'
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled'
+  expiresAt: string
+  createdAt: string
+}
+
 export interface Bot {
   id: string
   name: string

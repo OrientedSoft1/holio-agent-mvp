@@ -1,9 +1,143 @@
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service.js';
+import { CreateCompanyDto } from './dto/create-company.dto.js';
+import { UpdateCompanyDto } from './dto/update-company.dto.js';
+import { InviteMemberDto } from './dto/invite-member.dto.js';
+import { UpdateMemberDto } from './dto/update-member.dto.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { User } from '../users/entities/user.entity.js';
 
 @ApiTags('companies')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('companies')
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new company' })
+  create(@CurrentUser() user: User, @Body() dto: CreateCompanyDto) {
+    return this.companiesService.create(user.id, dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'List all companies for the current user' })
+  findAll(@CurrentUser() user: User) {
+    return this.companiesService.findAllForUser(user.id);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a company by ID' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.companiesService.findOne(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a company' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateCompanyDto,
+  ) {
+    return this.companiesService.update(id, user.id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a company' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.companiesService.remove(id, user.id);
+  }
+
+  @Get(':id/members')
+  @ApiOperation({ summary: 'List members of a company (paginated)' })
+  getMembers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.companiesService.getMembers(
+      id,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
+  }
+
+  // ──── Invitations ────
+
+  @Post(':id/invite')
+  @ApiOperation({ summary: 'Invite a user to the company' })
+  invite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.companiesService.invite(id, user.id, dto);
+  }
+
+  @Get(':id/invitations')
+  @ApiOperation({ summary: 'List pending invitations for a company' })
+  getInvitations(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.companiesService.getInvitations(id, user.id);
+  }
+
+  @Post('invitations/:token/accept')
+  @ApiOperation({ summary: 'Accept a company invitation' })
+  acceptInvitation(@Param('token') token: string, @CurrentUser() user: User) {
+    return this.companiesService.acceptInvitation(token, user.id);
+  }
+
+  @Post('invitations/:token/decline')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Decline a company invitation' })
+  declineInvitation(@Param('token') token: string) {
+    return this.companiesService.declineInvitation(token);
+  }
+
+  // ──── Member management ────
+
+  @Patch(':id/members/:userId')
+  @ApiOperation({ summary: "Update a member's role" })
+  updateMemberRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() dto: UpdateMemberDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.companiesService.updateMemberRole(
+      id,
+      userId,
+      dto.role,
+      user.id,
+    );
+  }
+
+  @Delete(':id/members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a member from the company' })
+  removeMember(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.companiesService.removeMember(id, userId, user.id);
+  }
 }

@@ -5,6 +5,7 @@ import VerifyPage from './pages/VerifyPage'
 import TwoFactorPage from './pages/TwoFactorPage'
 import ProfileSetupPage from './pages/ProfileSetupPage'
 import SelectCompanyPage from './pages/SelectCompanyPage'
+import CompanySettingsPage from './pages/CompanySettingsPage'
 import ChatPage from './pages/ChatPage'
 import BotsPage from './pages/BotsPage'
 import SettingsPage from './pages/SettingsPage'
@@ -35,6 +36,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SelectCompanyPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/company-settings"
+          element={
+            <ProtectedRoute>
+              <CompanySettingsPage />
             </ProtectedRoute>
           }
         />
