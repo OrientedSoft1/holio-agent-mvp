@@ -4,37 +4,37 @@ import { useUiStore } from '../stores/uiStore'
 export function useKeyboardShortcuts() {
   const toggleDarkMode = useUiStore((s) => s.toggleDarkMode)
   const setShowInfoPanel = useUiStore((s) => s.setShowInfoPanel)
+  const toggleGlobalSearch = useUiStore((s) => s.toggleGlobalSearch)
 
   const handler = useCallback(
     (e: KeyboardEvent) => {
-      const isInput =
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target instanceof HTMLElement && e.target.isContentEditable)
+      const mod = e.ctrlKey || e.metaKey
+
+      if (mod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        toggleGlobalSearch()
+        return
+      }
 
       if (e.key === 'Escape') {
         setShowInfoPanel(false)
         return
       }
 
-      if (isInput && e.key !== 'Escape') return
+      const isInput =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
 
-      const mod = e.ctrlKey || e.metaKey
+      if (isInput) return
 
       if (mod && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault()
         toggleDarkMode()
         return
       }
-
-      if (mod && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault()
-        const searchInput = document.querySelector<HTMLInputElement>('[data-search-input]')
-        searchInput?.focus()
-        return
-      }
     },
-    [toggleDarkMode, setShowInfoPanel],
+    [toggleDarkMode, setShowInfoPanel, toggleGlobalSearch],
   )
 
   useEffect(() => {

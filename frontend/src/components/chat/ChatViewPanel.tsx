@@ -4,8 +4,13 @@ import ChatHeader from './ChatHeader'
 import MessageBubble from './MessageBubble'
 import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
+import InChatSearch from '../search/InChatSearch'
+import TypingIndicator from './TypingIndicator'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useUiStore } from '../../stores/uiStore'
+import { usePresenceStore } from '../../stores/presenceStore'
+import { getSocket } from '../../services/socket.service'
 import type { Chat } from '../../types'
 
 function groupMessagesByDate(messages: { createdAt: string }[]) {
@@ -53,12 +58,28 @@ export default function ChatViewPanel() {
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
   const currentUserId = useAuthStore((s) => s.user?.id)
+  const showInChatSearch = useUiStore((s) => s.showInChatSearch)
+  const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const lastReadRef = useRef<string | null>(null)
 
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  useEffect(() => {
+    if (!activeChat || !messages.length || !currentUserId) return
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg.senderId === currentUserId) return
+    if (lastReadRef.current === lastMsg.id) return
+
+    lastReadRef.current = lastMsg.id
+    const socket = getSocket()
+    if (socket) {
+      socket.emit('message:read', { chatId: activeChat.id, messageId: lastMsg.id })
+    }
+  }, [activeChat, messages, currentUserId])
 
   if (!activeChat) {
     return (
@@ -80,6 +101,19 @@ export default function ChatViewPanel() {
   const isGroupLike = activeChat.type === 'group' || activeChat.type === 'channel'
   const dateGroups = groupMessagesByDate(messages)
 
+  const chatMembers = (activeChat as any).members as { userId: string }[] | undefined
+  const otherUserId = activeChat.type === 'private' && chatMembers
+    ? chatMembers.find((m) => m.userId !== currentUserId)?.userId
+    : undefined
+  const peerOnline = usePresenceStore((s) => otherUserId ? s.onlineUsers.has(otherUserId) : false)
+  const peerLastSeen = usePresenceStore((s) => otherUserId ? s.lastSeen[otherUserId] : undefined)
+
+  const isDM = activeChat.type === 'private'
+  const isOnline = isDM ? peerOnline : false
+  const statusText = isDM
+    ? (peerOnline ? 'online' : (peerLastSeen ? `last seen ${new Date(peerLastSeen).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}` : ''))
+    : (isGroupLike ? `${chatMembers?.length ?? 0} members` : '')
+
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite">
       <ChatHeader
@@ -87,9 +121,17 @@ export default function ChatViewPanel() {
         avatarUrl={activeChat.avatarUrl}
         initials={initials}
         avatarColor={color}
-        status="online"
-        isOnline
+        status={statusText}
+        isOnline={isOnline}
       />
+
+      {showInChatSearch && (
+        <InChatSearch
+          chatId={activeChat.id}
+          open={showInChatSearch}
+          onClose={() => setShowInChatSearch(false)}
+        />
+      )}
 
       <div ref={scrollRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-6 py-4">
         {messagesLoading && (
@@ -106,6 +148,7 @@ export default function ChatViewPanel() {
               return (
                 <MessageBubble
                   key={msg.id}
+                  rawMessage={msg}
                   message={{
                     id: msg.id,
                     content: msg.content,
@@ -115,7 +158,7 @@ export default function ChatViewPanel() {
                     }),
                     isMine: msg.senderId === currentUserId,
                     senderName: msg.sender?.firstName,
-                    isRead: true,
+                    isRead: !!(msg as any).isRead || !!(msg as any).readAt,
                     isGroup: isGroupLike,
                     type: msg.type,
                     fileUrl: msg.fileUrl,
@@ -131,6 +174,7 @@ export default function ChatViewPanel() {
         ))}
       </div>
 
+      <TypingIndicator chatId={activeChat.id} />
       <MessageInput chatId={activeChat.id} />
     </div>
   )

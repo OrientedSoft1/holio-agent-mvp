@@ -17,7 +17,7 @@ export class Chat {
   id: string;
 
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   companyId: string | null;
 
   @ManyToOne(() => Company, { nullable: true, onDelete: 'CASCADE' })
@@ -27,10 +27,10 @@ export class Chat {
   @Column({ type: 'enum', enum: ChatType })
   type: ChatType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   name: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   avatarUrl: string | null;
 
   @Column({ type: 'text', nullable: true })

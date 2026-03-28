@@ -24,7 +24,7 @@ export class Story {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   companyId: string | null;
 
   @Column()

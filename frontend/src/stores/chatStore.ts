@@ -10,6 +10,8 @@ interface ChatState {
   messagesLoading: boolean
   hasMoreMessages: boolean
   typingUsers: Record<string, string[]>
+  replyToMessage: Message | null
+  editingMessage: Message | null
 
   fetchChats: (companyId?: string) => Promise<void>
   fetchMessages: (chatId: string, page?: number) => Promise<void>
@@ -20,6 +22,8 @@ interface ChatState {
   setTyping: (chatId: string, userId: string, isTyping: boolean) => void
   createDM: (targetUserId: string) => Promise<Chat>
   sendMessage: (chatId: string, content: string, type?: string, extra?: { fileUrl?: string; metadata?: Record<string, unknown> }) => Promise<void>
+  setReplyTo: (message: Message | null) => void
+  setEditing: (message: Message | null) => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -30,6 +34,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messagesLoading: false,
   hasMoreMessages: true,
   typingUsers: {},
+  replyToMessage: null,
+  editingMessage: null,
 
   fetchChats: async (companyId?: string) => {
     set({ loading: true })
@@ -116,4 +122,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
     get().addMessage(data)
   },
+
+  setReplyTo: (message) => set({ replyToMessage: message, editingMessage: null }),
+  setEditing: (message) => set({ editingMessage: message, replyToMessage: null }),
 }))

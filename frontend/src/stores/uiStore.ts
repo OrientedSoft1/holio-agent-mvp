@@ -5,6 +5,8 @@ export type NavItem = 'all' | 'personal' | 'company' | 'channels' | 'bots' | 'fa
 interface UiState {
   showInfoPanel: boolean
   showEmojiPicker: boolean
+  showGlobalSearch: boolean
+  showInChatSearch: boolean
   darkMode: boolean
   activeNavItem: NavItem
   chatListWidth: number
@@ -12,6 +14,10 @@ interface UiState {
   toggleInfoPanel: () => void
   setShowInfoPanel: (show: boolean) => void
   toggleEmojiPicker: () => void
+  toggleGlobalSearch: () => void
+  setShowGlobalSearch: (show: boolean) => void
+  toggleInChatSearch: () => void
+  setShowInChatSearch: (show: boolean) => void
   toggleDarkMode: () => void
   setActiveNavItem: (item: NavItem) => void
   setChatListWidth: (width: number) => void
@@ -23,6 +29,8 @@ const storedDark = localStorage.getItem('holio-dark-mode') === 'true'
 export const useUiStore = create<UiState>((set) => ({
   showInfoPanel: false,
   showEmojiPicker: false,
+  showGlobalSearch: false,
+  showInChatSearch: false,
   darkMode: storedDark,
   activeNavItem: 'all',
   chatListWidth: 320,
@@ -30,6 +38,10 @@ export const useUiStore = create<UiState>((set) => ({
   toggleInfoPanel: () => set((s) => ({ showInfoPanel: !s.showInfoPanel })),
   setShowInfoPanel: (show) => set({ showInfoPanel: show }),
   toggleEmojiPicker: () => set((s) => ({ showEmojiPicker: !s.showEmojiPicker })),
+  toggleGlobalSearch: () => set((s) => ({ showGlobalSearch: !s.showGlobalSearch })),
+  setShowGlobalSearch: (show) => set({ showGlobalSearch: show }),
+  toggleInChatSearch: () => set((s) => ({ showInChatSearch: !s.showInChatSearch })),
+  setShowInChatSearch: (show) => set({ showInChatSearch: show }),
   toggleDarkMode: () =>
     set((s) => {
       const next = !s.darkMode

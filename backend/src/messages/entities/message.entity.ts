@@ -40,14 +40,14 @@ export class Message {
   })
   senderType: SenderType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   replyToId: string | null;
 
   @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'replyToId' })
   replyTo: Message | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   forwardedFromId: string | null;
 
   @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
@@ -64,22 +64,22 @@ export class Message {
   @Column({ type: 'text', nullable: true })
   content: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   fileUrl: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   fileName: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   fileSize: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   mimeType: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   duration: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   thumbnailUrl: string | null;
 
   @Column({ type: 'jsonb', default: {} })
