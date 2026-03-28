@@ -15,6 +15,8 @@ import { Server, Socket } from 'socket.io';
 import { ChatsService } from '../chats/chats.service.js';
 import { MessagesService } from '../messages/messages.service.js';
 import { UsersService } from '../users/users.service.js';
+import { BotsService } from '../bots/bots.service.js';
+import { BotWorkerService } from '../bot-worker/bot-worker.service.js';
 
 interface AuthPayload {
   sub: string;
@@ -39,6 +41,8 @@ export class AppGateway
     private readonly chatsService: ChatsService,
     private readonly messagesService: MessagesService,
     private readonly usersService: UsersService,
+    private readonly botsService: BotsService,
+    private readonly botWorkerService: BotWorkerService,
   ) {}
 
   afterInit() {
@@ -46,6 +50,10 @@ export class AppGateway
 
     this.messagesService.setMessageEditEmitter((message) => {
       this.server.to(`chat:${message.chatId}`).emit('message:edit', message);
+    });
+
+    this.botWorkerService.setMessageEmitter((chatId, message) => {
+      this.server.to(`chat:${chatId}`).emit('message:new', message);
     });
   }
 
@@ -136,6 +144,14 @@ export class AppGateway
     });
 
     this.server.to(`chat:${data.chatId}`).emit('message:new', message);
+
+    if (data.content) {
+      this.botsService
+        .handleMentions(data.content, data.chatId, message.id)
+        .catch((err) =>
+          this.logger.debug(`Bot mention handling failed: ${err}`),
+        );
+    }
 
     const recipientIds = await this.messagesService.getChatMemberIdsExcept(
       data.chatId,

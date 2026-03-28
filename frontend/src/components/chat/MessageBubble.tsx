@@ -9,6 +9,7 @@ import VideoNote from '../messages/VideoNote'
 import FileMessage from '../messages/FileMessage'
 import GifMessage from '../messages/GifMessage'
 import LinkPreview from '../messages/LinkPreview'
+import BotMessage from '../messages/BotMessage'
 
 export interface MessageData {
   id: string
@@ -16,6 +17,7 @@ export interface MessageData {
   timestamp: string
   isMine: boolean
   senderName?: string
+  senderType?: 'user' | 'bot' | 'system'
   isRead: boolean
   isGroup: boolean
   type: Message['type']
@@ -30,6 +32,20 @@ interface MessageBubbleProps {
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const [viewerImages, setViewerImages] = useState<string[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
+
+  const isBotMessage =
+    message.senderType === 'bot' || message.type === 'botResult'
+
+  if (isBotMessage) {
+    return (
+      <BotMessage
+        content={message.content}
+        botName={message.metadata?.botName ?? message.senderName ?? 'AI Agent'}
+        botType={message.metadata?.botType}
+        timestamp={message.timestamp}
+      />
+    )
+  }
 
   const openViewer = (index: number, images: string[]) => {
     setViewerImages(images)

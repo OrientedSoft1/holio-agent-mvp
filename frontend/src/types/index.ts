@@ -60,14 +60,18 @@ export interface MessageMetadata {
   width?: number
   height?: number
   isViewOnce?: boolean
+  botId?: string
+  botName?: string
+  botType?: Bot['type']
 }
 
 export interface Message {
   id: string
   chatId: string
   senderId: string
+  senderType?: 'user' | 'bot' | 'system'
   content: string
-  type: 'text' | 'image' | 'file' | 'voice' | 'videoNote' | 'gif' | 'system'
+  type: 'text' | 'image' | 'file' | 'voice' | 'videoNote' | 'gif' | 'system' | 'botResult'
   fileUrl: string | null
   replyToId: string | null
   metadata: MessageMetadata | null
@@ -89,12 +93,37 @@ export interface CompanyInvitation {
 
 export interface Bot {
   id: string
-  name: string
-  description: string | null
-  avatarUrl: string | null
-  modelId: string
-  systemPrompt: string | null
-  isPublic: boolean
   companyId: string
+  name: string
+  avatarUrl: string | null
+  description: string | null
+  type: 'cfo' | 'marketing' | 'hr' | 'support' | 'devops' | 'custom'
+  systemPrompt: string
+  modelId: string
+  temperature: number
+  maxTokens: number
+  isActive: boolean
+  createdAt: string
+}
+
+export interface BotTemplate {
+  id: string
+  name: string
+  description: string
+  category: string
+  defaultSystemPrompt: string
+  defaultModelId: string
+  iconUrl: string | null
+}
+
+export interface BotTask {
+  id: string
+  botId: string
+  chatId: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  input: string | null
+  output: string | null
+  tokensUsed: number | null
+  durationMs: number | null
   createdAt: string
 }

@@ -52,3 +52,19 @@ export enum ChatMemberRole {
   ADMIN = 'admin',
   MEMBER = 'member',
 }
+
+export enum BotType {
+  CFO = 'cfo',
+  MARKETING = 'marketing',
+  HR = 'hr',
+  SUPPORT = 'support',
+  DEVOPS = 'devops',
+  CUSTOM = 'custom',
+}
+
+export enum BotTaskStatus {
+  QUEUED = 'queued',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bull';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -38,6 +39,16 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
         database: config.get<string>('DATABASE_NAME', 'holio_agent'),
         autoLoadEntities: true,
         synchronize: config.get<string>('NODE_ENV') !== 'production',
+      }),
+    }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: {
+          host: config.get<string>('REDIS_HOST', 'localhost'),
+          port: config.get<number>('REDIS_PORT', 6379),
+        },
       }),
     }),
     AuthModule,
