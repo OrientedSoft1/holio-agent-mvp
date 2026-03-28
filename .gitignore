@@ -9,7 +9,8 @@ coverage/
 npm-debug.log*
 .DS_Store
 Thumbs.db
-uploads/
+/uploads/
+/backend/uploads/
 *.min.js
 *.map
 *.bundle.js
