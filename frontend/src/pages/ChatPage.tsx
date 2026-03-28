@@ -2,6 +2,7 @@ import Sidebar from '../components/layout/Sidebar'
 import ChatListPanel from '../components/chat/ChatListPanel'
 import ChatViewPanel from '../components/chat/ChatViewPanel'
 import InfoPanel from '../components/chat/InfoPanel'
+import ContactsPanel from '../components/chat/ContactsPanel'
 import ResizablePanel from '../components/layout/ResizablePanel'
 import { useUiStore } from '../stores/uiStore'
 import { useChatStore } from '../stores/chatStore'
@@ -16,6 +17,8 @@ export default function ChatPage() {
   const infoPanelWidth = useUiStore((s) => s.infoPanelWidth)
   const setChatListWidth = useUiStore((s) => s.setChatListWidth)
   const setInfoPanelWidth = useUiStore((s) => s.setInfoPanelWidth)
+  const activeNavItem = useUiStore((s) => s.activeNavItem)
+  const setActiveNavItem = useUiStore((s) => s.setActiveNavItem)
   const activeChat = useChatStore((s) => s.activeChat)
   const setActiveChat = useChatStore((s) => s.setActiveChat)
   const fetchMessages = useChatStore((s) => s.fetchMessages)
@@ -28,6 +31,17 @@ export default function ChatPage() {
     fetchMessages(chat.id)
   }
 
+  const handleContactStartChat = (chatId: string) => {
+    const chats = useChatStore.getState().chats
+    const chat = chats.find((c) => c.id === chatId)
+    if (chat) {
+      handleSelectChat(chat)
+      setActiveNavItem('all')
+    }
+  }
+
+  const isContactsView = activeNavItem === 'contacts'
+
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen overflow-hidden bg-holio-offwhite">
@@ -39,10 +53,14 @@ export default function ChatPage() {
           onResize={setChatListWidth}
           side="left"
         >
-          <ChatListPanel
-            selectedChatId={activeChat?.id ?? null}
-            onSelectChat={handleSelectChat}
-          />
+          {isContactsView ? (
+            <ContactsPanel onStartChat={handleContactStartChat} />
+          ) : (
+            <ChatListPanel
+              selectedChatId={activeChat?.id ?? null}
+              onSelectChat={handleSelectChat}
+            />
+          )}
         </ResizablePanel>
         <ChatViewPanel />
         {showInfoPanel && (

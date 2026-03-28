@@ -9,6 +9,7 @@ import {
   Settings,
   Moon,
   Sun,
+  Users,
 } from 'lucide-react'
 import CompanySwitcher from './CompanySwitcher'
 import { useUiStore, type NavItem } from '../../stores/uiStore'
@@ -21,6 +22,7 @@ const navItems: { id: NavItem; label: string; icon: typeof LayoutGrid; badge?: n
   { id: 'channels', label: 'Channels', icon: Hash },
   { id: 'bots', label: 'Bots', icon: Bot },
   { id: 'favorites', label: 'Favorites', icon: Star },
+  { id: 'contacts', label: 'Contacts', icon: Users },
   { id: 'stories', label: 'Stories', icon: CircleDot },
 ]
 
