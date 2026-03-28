@@ -1,5 +1,7 @@
 import { BellOff } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { usePresenceStore } from '../../stores/presenceStore'
+import { useChatStore } from '../../stores/chatStore'
 import type { Chat } from '../../types'
 
 interface ChatItemProps {
@@ -50,6 +52,14 @@ function getChatDisplay(chat: Chat) {
 export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
   const { displayName, initials, isChannel, isGroup, color } = getChatDisplay(chat)
 
+  const members = (chat as any).members as { userId: string }[] | undefined
+  const otherUserId = chat.type === 'private' && members
+    ? members.find((m) => m.userId !== (chat as any).currentUserId)?.userId
+    : undefined
+  const isOnline = usePresenceStore((s) => otherUserId ? s.onlineUsers.has(otherUserId) : false)
+  const isDM = chat.type === 'private'
+
+  const typingUsers = useChatStore((s) => s.typingUsers[chat.id] ?? [])
   const lastMsgText = chat.lastMessage?.content ?? ''
   const lastMsgTime = chat.lastMessage?.createdAt ?? chat.createdAt
   const senderPrefix =
@@ -80,6 +90,9 @@ export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
             {initials}
           </div>
         )}
+        {isDM && isOnline && (
+          <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
+        )}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -93,7 +106,11 @@ export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
         </div>
         <div className="flex items-center justify-between">
           <p className="truncate text-xs text-holio-muted">
-            {senderPrefix}{lastMsgText}
+            {typingUsers.length > 0 ? (
+              <span className="text-holio-orange">typing...</span>
+            ) : (
+              <>{senderPrefix}{lastMsgText}</>
+            )}
           </p>
           <div className="ml-2 flex flex-shrink-0 items-center gap-1">
             {chat.muted && (
