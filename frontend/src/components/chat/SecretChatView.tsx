@@ -231,6 +231,7 @@ export default function SecretChatView({
                     isMine: msg.senderId === currentUserId,
                     senderName: msg.sender?.firstName,
                     isRead: !!msgRecord.isRead || !!msgRecord.readAt,
+                    isEdited: !!msgRecord.isEdited,
                     isGroup: false,
                     type: msg.type,
                     fileUrl: msg.fileUrl,
