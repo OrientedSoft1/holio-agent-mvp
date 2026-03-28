@@ -22,7 +22,7 @@ export class Company {
   @Column({ unique: true })
   slug: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   logoUrl: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -41,7 +41,7 @@ export class Company {
   })
   settings: Record<string, unknown>;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   bedrockEndpoint: string | null;
 
   @Column({ default: 'eu-west-1' })

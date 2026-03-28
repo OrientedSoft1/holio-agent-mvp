@@ -43,7 +43,7 @@ export class CompanyMember {
   @CreateDateColumn()
   joinedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   invitedById: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

@@ -30,7 +30,7 @@ export class StoryView {
   @JoinColumn({ name: 'viewerId' })
   viewer: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   reaction: string | null;
 
   @CreateDateColumn()
