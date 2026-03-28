@@ -296,6 +296,37 @@ export class MessagesService {
     });
   }
 
+  async getGroupReadReceipts(
+    messageId: string,
+    userId: string,
+  ): Promise<ReadReceipt[]> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+      relations: ['chat'],
+    });
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (message.senderId !== userId) {
+      throw new ForbiddenException(
+        'Only the sender can view group read receipts',
+      );
+    }
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    if (message.createdAt < sevenDaysAgo) {
+      return [];
+    }
+
+    return this.receiptRepo.find({
+      where: { messageId },
+      relations: ['user'],
+      order: { readAt: 'ASC' },
+    });
+  }
+
   async markChatAsRead(
     chatId: string,
     userId: string,

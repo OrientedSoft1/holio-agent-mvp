@@ -2,9 +2,13 @@ import { useEffect, useState, useMemo } from 'react'
 import { Settings, Search, MessageSquarePlus } from 'lucide-react'
 import ChatItem from './ChatItem'
 import FolderTabs from './FolderTabs'
+import StoryCircle from '../stories/StoryCircle'
+import StoryViewer from '../stories/StoryViewer'
 import { useChatStore } from '../../stores/chatStore'
 import { useCompanyStore } from '../../stores/companyStore'
 import { useFolderStore } from '../../stores/folderStore'
+import { useStoryStore } from '../../stores/storyStore'
+import { useAuthStore } from '../../stores/authStore'
 import type { Chat } from '../../types'
 
 function ChatSkeleton() {
@@ -37,9 +41,18 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
   const companyName = activeCompany?.name ?? 'Holio'
   const filterChats = useFolderStore((s) => s.filterChats)
 
+  const storyGroups = useStoryStore((s) => s.storyGroups)
+  const fetchStories = useStoryStore((s) => s.fetchStories)
+  const openViewer = useStoryStore((s) => s.openViewer)
+  const currentUser = useAuthStore((s) => s.user)
+
   useEffect(() => {
     fetchChats(activeCompany?.id)
   }, [fetchChats, activeCompany?.id])
+
+  useEffect(() => {
+    fetchStories()
+  }, [fetchStories])
 
   const displayedChats = useMemo(() => {
     let result = filterChats(chats)
@@ -53,6 +66,8 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
     }
     return result
   }, [chats, filterChats, searchQuery])
+
+  // Future: ownGroupIndex = storyGroups.findIndex(g => g.user.id === currentUser?.id)
 
   return (
     <div className="flex h-screen w-80 flex-shrink-0 flex-col border-r border-gray-100 bg-white">
@@ -70,6 +85,20 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
           </button>
         </div>
       </div>
+
+      {/* Stories row */}
+      {storyGroups.length > 0 && (
+        <div className="flex gap-3 overflow-x-auto px-3 py-2 scrollbar-none">
+          {storyGroups.map((group, index) => (
+            <StoryCircle
+              key={group.user.id}
+              group={group}
+              isOwn={group.user.id === currentUser?.id}
+              onClick={() => openViewer(index)}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="px-3 pb-2">
         <div className="relative">
@@ -116,6 +145,8 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
           ))
         )}
       </div>
+
+      <StoryViewer />
     </div>
   )
 }

@@ -28,12 +28,17 @@ export interface CompanyMember {
 
 export interface Chat {
   id: string
-  type: 'private' | 'group' | 'channel' | 'bot'
+  type: 'private' | 'group' | 'channel' | 'bot' | 'crossCompany'
   name: string | null
   avatarUrl: string | null
   lastMessage: Message | null
   unreadCount: number
-  companyId: string
+  companyId: string | null
+  description: string | null
+  isPublic: boolean
+  slowModeInterval: number
+  myRole?: 'owner' | 'admin' | 'member'
+  muted?: boolean
   createdAt: string
 }
 
@@ -126,4 +131,87 @@ export interface BotTask {
   tokensUsed: number | null
   durationMs: number | null
   createdAt: string
+}
+
+export interface Story {
+  id: string
+  userId: string
+  companyId: string | null
+  mediaUrl: string
+  mediaType: 'image' | 'video'
+  caption: string | null
+  privacyLevel: 'everyone' | 'contacts' | 'closeFriends' | 'selected'
+  expiresAt: string
+  createdAt: string
+  user: User
+  viewed?: boolean
+}
+
+export interface StoryGroup {
+  user: User
+  stories: Story[]
+}
+
+export interface StoryView {
+  id: string
+  storyId: string
+  viewerId: string
+  reaction: string | null
+  viewedAt: string
+  viewer: User
+}
+
+export interface SearchResults {
+  chats: Chat[]
+  users: User[]
+  messages: Message[]
+}
+
+export interface NotificationSettings {
+  id: string
+  userId: string
+  chatId: string
+  muted: boolean
+  mutedUntil: string | null
+  customSound: string | null
+}
+
+export interface PrivacySettings {
+  lastSeen: 'everybody' | 'contacts' | 'nobody'
+  phone: 'everybody' | 'contacts' | 'nobody'
+  profilePhoto: 'everybody' | 'contacts' | 'nobody'
+  forwarding: boolean
+  readReceipts: boolean
+}
+
+export interface ChannelPermissions {
+  sendMessages: boolean
+  sendMedia: boolean
+  pinMessages: boolean
+  addMembers: boolean
+}
+
+export interface ChatMember {
+  id: string
+  chatId: string
+  userId: string
+  role: 'owner' | 'admin' | 'member'
+  permissions: ChannelPermissions
+  user: User
+  joinedAt: string
+}
+
+export interface InviteLink {
+  token: string
+  createdBy: string
+  expiresAt: string
+  createdAt: string
+}
+
+export interface GroupReadReceipt {
+  id: string
+  messageId: string
+  userId: string
+  user: User
+  readAt: string
 }

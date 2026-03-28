@@ -1,3 +1,4 @@
+import { BellOff } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Chat } from '../../types'
 
@@ -95,8 +96,14 @@ export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
             {senderPrefix}{lastMsgText}
           </p>
           <div className="ml-2 flex flex-shrink-0 items-center gap-1">
+            {chat.muted && (
+              <BellOff className="h-3.5 w-3.5 text-holio-muted" />
+            )}
             {chat.unreadCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-holio-orange px-1.5 text-[11px] font-medium text-white">
+              <span className={cn(
+                'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium text-white',
+                chat.muted ? 'bg-gray-400' : 'bg-holio-orange',
+              )}>
                 {chat.unreadCount}
               </span>
             )}

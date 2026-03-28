@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   X,
   Bell,
+  BellOff,
   Image,
   File,
   Play,
@@ -19,11 +20,14 @@ import {
   Users,
   Headphones,
   Server,
+  Shield,
 } from 'lucide-react'
 import { useUiStore } from '../../stores/uiStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBotStore } from '../../stores/botStore'
 import { cn } from '../../lib/utils'
+import ChannelAdminPanel from '../groups/ChannelAdminPanel'
+import api from '../../services/api.service'
 import type { Bot as BotType } from '../../types'
 
 const MEDIA_STATS = [
@@ -65,11 +69,15 @@ export default function InfoPanel() {
   const inviteBotToChat = useBotStore((s) => s.inviteBotToChat)
   const removeBotFromChat = useBotStore((s) => s.removeBotFromChat)
   const [showBotPicker, setShowBotPicker] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [isMuted, setIsMuted] = useState(activeChat?.muted ?? false)
+  const [showMutePicker, setShowMutePicker] = useState(false)
 
   if (!activeChat) return null
 
   const isChannel = activeChat.type === 'channel'
-  const isGroupLike = activeChat.type === 'group' || isChannel
+  const isGroupLike = activeChat.type === 'group' || isChannel || activeChat.type === 'crossCompany'
+  const isAdmin = activeChat.myRole === 'admin' || activeChat.myRole === 'owner'
   const displayName = isChannel ? `# ${activeChat.name ?? 'channel'}` : activeChat.name ?? 'Chat'
   const initials = isChannel
     ? '#'
@@ -82,6 +90,15 @@ export default function InfoPanel() {
     bot: '#FF9220',
   }
   const avatarColor = colorMap[activeChat.type] ?? '#6366f1'
+
+  if (showAdminPanel && isAdmin && isGroupLike) {
+    return (
+      <ChannelAdminPanel
+        chat={activeChat}
+        onClose={() => setShowAdminPanel(false)}
+      />
+    )
+  }
 
   const handleAddBot = async (bot: BotType) => {
     try {
@@ -138,16 +155,68 @@ export default function InfoPanel() {
 
         <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
           <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-holio-muted" />
+            {isMuted ? (
+              <BellOff className="h-4 w-4 text-holio-muted" />
+            ) : (
+              <Bell className="h-4 w-4 text-holio-muted" />
+            )}
             <span className="text-sm text-holio-text">Notifications</span>
           </div>
-          <button
-            className="h-6 w-10 rounded-full bg-holio-orange p-0.5 transition-colors"
-            aria-label="Toggle notifications"
-          >
-            <div className="h-5 w-5 translate-x-4 rounded-full bg-white shadow-sm transition-transform" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (isMuted) {
+                  api.post(`/chats/${activeChat.id}/unmute`).then(() => setIsMuted(false)).catch(() => {})
+                } else {
+                  setShowMutePicker(!showMutePicker)
+                }
+              }}
+              className={`h-6 w-10 rounded-full p-0.5 transition-colors ${
+                isMuted ? 'bg-gray-300' : 'bg-holio-orange'
+              }`}
+              aria-label="Toggle notifications"
+            >
+              <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                isMuted ? 'translate-x-0' : 'translate-x-4'
+              }`} />
+            </button>
+            {showMutePicker && (
+              <div className="absolute right-0 top-8 z-10 w-48 rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
+                {[
+                  { label: '1 hour', value: '1h' },
+                  { label: '8 hours', value: '8h' },
+                  { label: '2 days', value: '2d' },
+                  { label: 'Until I turn it on', value: 'forever' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      api.post(`/chats/${activeChat.id}/mute`, { duration: opt.value })
+                        .then(() => { setIsMuted(true); setShowMutePicker(false) })
+                        .catch(() => {})
+                    }}
+                    className="flex w-full px-3 py-2 text-left text-sm text-holio-text hover:bg-gray-50"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {isGroupLike && isAdmin && (
+          <div className="border-t border-gray-100 px-4 py-3">
+            <button
+              onClick={() => setShowAdminPanel(true)}
+              className="flex w-full items-center gap-3 rounded-lg bg-holio-lavender/10 px-3 py-2.5 transition-colors hover:bg-holio-lavender/20"
+            >
+              <Shield className="h-4 w-4 text-holio-lavender" />
+              <span className="text-sm font-medium text-holio-text">Admin Panel</span>
+              <ChevronRight className="ml-auto h-4 w-4 text-holio-muted" />
+            </button>
+          </div>
+        )}
 
         {/* Bots in this chat */}
         <div className="border-t border-gray-100 px-4 py-3">

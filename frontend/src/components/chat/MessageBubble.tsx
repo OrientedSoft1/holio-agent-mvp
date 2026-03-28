@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Check, CheckCheck } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Check, CheckCheck, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import type { Message, MessageMetadata } from '../../types'
+import type { Message, MessageMetadata, GroupReadReceipt } from '../../types'
+import api from '../../services/api.service'
 import ImageMessage from '../messages/ImageMessage'
 import ImageViewer from '../messages/ImageViewer'
 import VoiceMessage from '../messages/VoiceMessage'
@@ -20,6 +21,7 @@ export interface MessageData {
   senderType?: 'user' | 'bot' | 'system'
   isRead: boolean
   isGroup: boolean
+  readCount?: number
   type: Message['type']
   fileUrl?: string | null
   metadata?: MessageMetadata | null
@@ -29,9 +31,68 @@ interface MessageBubbleProps {
   message: MessageData
 }
 
+function GroupReadPopup({
+  messageId,
+  onClose,
+}: {
+  messageId: string
+  onClose: () => void
+}) {
+  const [receipts, setReceipts] = useState<GroupReadReceipt[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetch = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/messages/${messageId}/group-reads`)
+      setReceipts(data)
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [messageId])
+
+  useState(() => {
+    fetch()
+  })
+
+  return (
+    <div className="absolute right-0 bottom-6 z-50 w-48 rounded-lg border border-gray-100 bg-white p-2 shadow-lg">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-holio-text">Read by</span>
+        <button
+          onClick={onClose}
+          className="rounded-full p-0.5 text-holio-muted hover:text-holio-text"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      {loading ? (
+        <p className="py-2 text-center text-[10px] text-holio-muted">Loading...</p>
+      ) : receipts.length === 0 ? (
+        <p className="py-2 text-center text-[10px] text-holio-muted">No readers yet</p>
+      ) : (
+        <div className="max-h-32 space-y-1 overflow-y-auto">
+          {receipts.map((r) => (
+            <div key={r.id} className="flex items-center gap-1.5 py-0.5">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-holio-lavender/30 text-[8px] font-semibold text-holio-text">
+                {r.user.firstName[0]}
+              </div>
+              <span className="truncate text-[10px] text-holio-text">
+                {r.user.firstName} {r.user.lastName ?? ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const [viewerImages, setViewerImages] = useState<string[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
+  const [showReadPopup, setShowReadPopup] = useState(false)
 
   const isBotMessage =
     message.senderType === 'bot' || message.type === 'botResult'
@@ -186,6 +247,25 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 'mt-1 flex items-center justify-end gap-1',
                 message.isMine ? 'text-white/70' : 'text-holio-muted',
               )}>
+                {message.isMine && message.isGroup && (message.readCount ?? 0) > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowReadPopup(!showReadPopup)}
+                      className={cn(
+                        'mr-1 text-[10px] underline',
+                        message.isMine ? 'text-white/60 hover:text-white/80' : 'text-holio-muted hover:text-holio-text',
+                      )}
+                    >
+                      Read by {message.readCount}
+                    </button>
+                    {showReadPopup && (
+                      <GroupReadPopup
+                        messageId={message.id}
+                        onClose={() => setShowReadPopup(false)}
+                      />
+                    )}
+                  </div>
+                )}
                 <span className="text-[11px]">{message.timestamp}</span>
                 {message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />)}
               </div>

@@ -87,7 +87,8 @@ export class BotsService implements OnModuleInit {
     await this.checkCompanyAdmin(bot.companyId, userId);
 
     if (dto.name !== undefined) bot.name = dto.name;
-    if (dto.description !== undefined) bot.description = dto.description ?? null;
+    if (dto.description !== undefined)
+      bot.description = dto.description ?? null;
     if (dto.systemPrompt !== undefined) bot.systemPrompt = dto.systemPrompt;
     if (dto.modelId !== undefined) bot.modelId = dto.modelId;
     if (dto.temperature !== undefined) bot.temperature = dto.temperature;
@@ -153,9 +154,7 @@ export class BotsService implements OnModuleInit {
       where: { chatId },
       relations: ['bot'],
     });
-    return members
-      .map((m) => m.bot)
-      .filter((b) => b.isActive);
+    return members.map((m) => m.bot).filter((b) => b.isActive);
   }
 
   // ──── @mention detection + task queueing ────
@@ -171,7 +170,12 @@ export class BotsService implements OnModuleInit {
     for (const bot of botsInChat) {
       const mentionPattern = `@${bot.name}`;
       if (messageContent.includes(mentionPattern)) {
-        await this.createAndQueueTask(bot.id, chatId, messageId, messageContent);
+        await this.createAndQueueTask(
+          bot.id,
+          chatId,
+          messageId,
+          messageContent,
+        );
       }
     }
   }
@@ -192,7 +196,10 @@ export class BotsService implements OnModuleInit {
     const saved = await this.botTaskRepo.save(task);
 
     try {
-      await this.botTaskQueue.add({ taskId: saved.id }, { attempts: 3, backoff: 5000 });
+      await this.botTaskQueue.add(
+        { taskId: saved.id },
+        { attempts: 3, backoff: 5000 },
+      );
     } catch (error) {
       this.logger.warn(`Failed to queue bot task ${saved.id}: ${error}`);
       saved.status = BotTaskStatus.FAILED;
@@ -257,7 +264,12 @@ export class BotsService implements OnModuleInit {
     const botIds = bots.map((b) => b.id);
 
     if (botIds.length === 0) {
-      return { totalTasks: 0, totalTokensUsed: 0, avgDurationMs: 0, botCount: 0 };
+      return {
+        totalTasks: 0,
+        totalTokensUsed: 0,
+        avgDurationMs: 0,
+        botCount: 0,
+      };
     }
 
     const stats = await this.botTaskRepo
@@ -292,9 +304,7 @@ export class BotsService implements OnModuleInit {
       member.role !== CompanyRole.OWNER &&
       member.role !== CompanyRole.ADMIN
     ) {
-      throw new ForbiddenException(
-        'Only admins and owners can manage bots',
-      );
+      throw new ForbiddenException('Only admins and owners can manage bots');
     }
     return member;
   }
@@ -306,7 +316,8 @@ export class BotsService implements OnModuleInit {
     const templates: Array<Partial<BotTemplate>> = [
       {
         name: 'Financial Analyst',
-        description: 'AI agent specializing in financial analysis, budgeting, forecasting, and financial reporting.',
+        description:
+          'AI agent specializing in financial analysis, budgeting, forecasting, and financial reporting.',
         category: BotType.CFO,
         defaultSystemPrompt:
           'You are a senior financial analyst AI agent. You help with financial analysis, budgeting, forecasting, ' +
@@ -318,7 +329,8 @@ export class BotsService implements OnModuleInit {
       },
       {
         name: 'Marketing Strategist',
-        description: 'AI agent for content creation, campaign analysis, SEO optimization, and marketing strategy.',
+        description:
+          'AI agent for content creation, campaign analysis, SEO optimization, and marketing strategy.',
         category: BotType.MARKETING,
         defaultSystemPrompt:
           'You are a marketing strategist AI agent. You assist with content creation, campaign planning and analysis, ' +
@@ -330,7 +342,8 @@ export class BotsService implements OnModuleInit {
       },
       {
         name: 'HR Assistant',
-        description: 'AI agent for employee policies, onboarding processes, and HR-related queries.',
+        description:
+          'AI agent for employee policies, onboarding processes, and HR-related queries.',
         category: BotType.HR,
         defaultSystemPrompt:
           'You are an HR assistant AI agent. You help with employee handbook questions, company policies, ' +
@@ -342,7 +355,8 @@ export class BotsService implements OnModuleInit {
       },
       {
         name: 'Customer Support Agent',
-        description: 'AI agent for FAQ handling, ticket triage, and customer response drafting.',
+        description:
+          'AI agent for FAQ handling, ticket triage, and customer response drafting.',
         category: BotType.SUPPORT,
         defaultSystemPrompt:
           'You are a customer support AI agent. You help handle frequently asked questions, triage support tickets, ' +
@@ -354,7 +368,8 @@ export class BotsService implements OnModuleInit {
       },
       {
         name: 'DevOps Engineer',
-        description: 'AI agent for infrastructure monitoring, deployment status, and incident response.',
+        description:
+          'AI agent for infrastructure monitoring, deployment status, and incident response.',
         category: BotType.DEVOPS,
         defaultSystemPrompt:
           'You are a DevOps engineer AI agent. You assist with infrastructure monitoring questions, deployment ' +
@@ -366,7 +381,8 @@ export class BotsService implements OnModuleInit {
       },
       {
         name: 'Custom AI Agent',
-        description: 'A general-purpose AI agent that can be customized with your own system prompt and tools.',
+        description:
+          'A general-purpose AI agent that can be customized with your own system prompt and tools.',
         category: BotType.CUSTOM,
         defaultSystemPrompt:
           'You are a helpful AI assistant. Answer questions accurately and helpfully. ' +

@@ -42,6 +42,9 @@ export class Chat {
   @Column({ default: 0 })
   slowModeInterval: number;
 
+  @Column({ type: 'jsonb', default: {} })
+  metadata: Record<string, unknown>;
+
   @Column({ type: 'timestamptz', nullable: true })
   lastMessageAt: Date | null;
 

@@ -68,3 +68,10 @@ export enum BotTaskStatus {
   COMPLETED = 'completed',
   FAILED = 'failed',
 }
+
+export enum StoryPrivacy {
+  EVERYONE = 'everyone',
+  CONTACTS = 'contacts',
+  CLOSE_FRIENDS = 'closeFriends',
+  SELECTED = 'selected',
+}

@@ -45,17 +45,13 @@ export class BotsController {
 
   @Get('companies/:companyId/bots')
   @ApiOperation({ summary: 'List all bots for a company' })
-  findAllForCompany(
-    @Param('companyId', ParseUUIDPipe) companyId: string,
-  ) {
+  findAllForCompany(@Param('companyId', ParseUUIDPipe) companyId: string) {
     return this.botsService.findAllForCompany(companyId);
   }
 
   @Get('companies/:companyId/bot-stats')
   @ApiOperation({ summary: 'Get aggregated bot stats for a company' })
-  getCompanyBotStats(
-    @Param('companyId', ParseUUIDPipe) companyId: string,
-  ) {
+  getCompanyBotStats(@Param('companyId', ParseUUIDPipe) companyId: string) {
     return this.botsService.getCompanyBotStats(companyId);
   }
 

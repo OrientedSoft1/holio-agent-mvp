@@ -2,11 +2,14 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
+import { UpdatePrivacyDto } from './dto/update-privacy.dto.js';
 
 @Injectable()
 export class UsersService {
@@ -105,5 +108,49 @@ export class UsersService {
       ],
       take: 20,
     });
+  }
+
+  async updatePrivacy(userId: string, dto: UpdatePrivacyDto): Promise<User> {
+    const user = await this.findOne(userId);
+    const current = user.privacySettings ?? {};
+
+    if (dto.lastSeen !== undefined) current.lastSeen = dto.lastSeen;
+    if (dto.phone !== undefined) current.phone = dto.phone;
+    if (dto.profilePhoto !== undefined) current.profilePhoto = dto.profilePhoto;
+    if (dto.forwarding !== undefined) current.forwarding = dto.forwarding;
+    if (dto.readReceipts !== undefined) current.readReceipts = dto.readReceipts;
+
+    user.privacySettings = current;
+    return this.userRepo.save(user);
+  }
+
+  async setup2fa(
+    userId: string,
+    password: string,
+  ): Promise<{ success: boolean }> {
+    if (!password || password.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+    const user = await this.findOne(userId);
+    user.twoFaHash = await bcrypt.hash(password, 10);
+    await this.userRepo.save(user);
+    return { success: true };
+  }
+
+  async disable2fa(
+    userId: string,
+    currentPassword: string,
+  ): Promise<{ success: boolean }> {
+    const user = await this.findOne(userId);
+    if (!user.twoFaHash) {
+      throw new BadRequestException('Two-step verification is not enabled');
+    }
+    const valid = await bcrypt.compare(currentPassword, user.twoFaHash);
+    if (!valid) {
+      throw new BadRequestException('Incorrect password');
+    }
+    user.twoFaHash = null;
+    await this.userRepo.save(user);
+    return { success: true };
   }
 }

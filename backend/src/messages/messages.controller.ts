@@ -108,4 +108,15 @@ export class MessagesController {
   getReadReceipts(@Param('id', ParseUUIDPipe) id: string) {
     return this.messagesService.getReadReceipts(id);
   }
+
+  @Get('messages/:id/group-reads')
+  @ApiOperation({
+    summary: 'Get group read receipts (sender only, 7-day window)',
+  })
+  getGroupReadReceipts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.messagesService.getGroupReadReceipts(id, user.id);
+  }
 }

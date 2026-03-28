@@ -15,9 +15,8 @@ import { BotTaskStatus, SenderType, MessageType } from '../common/enums.js';
 export class BotWorkerService {
   private readonly logger = new Logger(BotWorkerService.name);
 
-  private messageEmitter:
-    | ((chatId: string, message: Message) => void)
-    | null = null;
+  private messageEmitter: ((chatId: string, message: Message) => void) | null =
+    null;
 
   constructor(
     @InjectRepository(BotTask)
@@ -64,12 +63,10 @@ export class BotWorkerService {
         relations: ['sender'],
       });
 
-      const conversationMessages = recentMessages
+      const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = recentMessages
         .reverse()
         .map((msg) => ({
-          role: (msg.senderType === SenderType.BOT
-            ? 'assistant'
-            : 'user') as 'user' | 'assistant',
+          role: (msg.senderType === SenderType.BOT ? 'assistant' : 'user') as 'user' | 'assistant',
           content:
             msg.senderType === SenderType.USER && msg.sender
               ? `[${msg.sender.firstName ?? msg.sender.username ?? 'User'}]: ${msg.content ?? ''}`
@@ -84,7 +81,9 @@ export class BotWorkerService {
         });
       }
 
-      if (conversationMessages[conversationMessages.length - 1].role !== 'user') {
+      if (
+        conversationMessages[conversationMessages.length - 1].role !== 'user'
+      ) {
         conversationMessages.push({
           role: 'user' as const,
           content: task.input ?? 'Please respond.',

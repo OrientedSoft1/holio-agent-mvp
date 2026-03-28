@@ -20,17 +20,15 @@ export class BedrockService {
 
   async invokeModel(config: InvokeConfig): Promise<InvokeResult> {
     try {
-      const {
-        BedrockRuntimeClient,
-        ConverseCommand,
-      } = await import('@aws-sdk/client-bedrock-runtime');
+      const { BedrockRuntimeClient, ConverseCommand } =
+        await import('@aws-sdk/client-bedrock-runtime');
 
       const client = new BedrockRuntimeClient({
         region: config.region ?? 'eu-west-1',
       });
 
       const messages = config.messages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
+        role: m.role,
         content: [{ text: m.content }],
       }));
 
@@ -46,8 +44,7 @@ export class BedrockService {
 
       const response = await client.send(command);
 
-      const outputContent =
-        response.output?.message?.content?.[0]?.text ?? '';
+      const outputContent = response.output?.message?.content?.[0]?.text ?? '';
       const inputTokens = response.usage?.inputTokens ?? 0;
       const outputTokens = response.usage?.outputTokens ?? 0;
 
@@ -67,17 +64,15 @@ export class BedrockService {
     config: InvokeConfig,
   ): AsyncGenerator<string, void, undefined> {
     try {
-      const {
-        BedrockRuntimeClient,
-        ConverseStreamCommand,
-      } = await import('@aws-sdk/client-bedrock-runtime');
+      const { BedrockRuntimeClient, ConverseStreamCommand } =
+        await import('@aws-sdk/client-bedrock-runtime');
 
       const client = new BedrockRuntimeClient({
         region: config.region ?? 'eu-west-1',
       });
 
       const messages = config.messages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
+        role: m.role,
         content: [{ text: m.content }],
       }));
 
