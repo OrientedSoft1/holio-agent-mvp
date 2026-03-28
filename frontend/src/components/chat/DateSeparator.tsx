@@ -4,12 +4,10 @@ interface DateSeparatorProps {
 
 export default function DateSeparator({ label }: DateSeparatorProps) {
   return (
-    <div className="flex items-center gap-4 py-4">
-      <div className="h-px flex-1 bg-gray-200" />
-      <span className="flex-shrink-0 rounded-full bg-white px-3 py-1 text-xs font-medium text-holio-muted shadow-sm">
+    <div className="flex items-center justify-center py-4">
+      <span className="rounded-full bg-[rgba(114,131,145,0.4)] px-3 py-1 text-[13px] font-medium text-white shadow-sm">
         {label}
       </span>
-      <div className="h-px flex-1 bg-gray-200" />
     </div>
   )
 }
