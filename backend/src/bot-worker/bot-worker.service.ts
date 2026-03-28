@@ -8,6 +8,7 @@ import { Bot } from '../bots/entities/bot.entity.js';
 import { Message } from '../messages/entities/message.entity.js';
 import { Company } from '../companies/entities/company.entity.js';
 import { BedrockService } from '../bots/bedrock.service.js';
+import { BedrockConfigService } from '../companies/bedrock-config.service.js';
 import { BotTaskStatus, SenderType, MessageType } from '../common/enums.js';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class BotWorkerService {
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
     private readonly bedrockService: BedrockService,
+    private readonly bedrockConfigService: BedrockConfigService,
   ) {}
 
   setMessageEmitter(emitter: (chatId: string, message: Message) => void) {
@@ -95,6 +97,14 @@ export class BotWorkerService {
         });
       }
 
+      const credentials = await this.bedrockConfigService
+        .getDecryptedCredentials(bot.companyId)
+        .catch(() => null);
+
+      const guardrailConfig = await this.bedrockConfigService
+        .getGuardrailConfig(bot.companyId)
+        .catch(() => null);
+
       const result = await this.bedrockService.invokeModel({
         modelId: bot.modelId,
         systemPrompt: bot.systemPrompt,
@@ -102,6 +112,13 @@ export class BotWorkerService {
         temperature: bot.temperature,
         maxTokens: bot.maxTokens,
         region: company?.bedrockRegion ?? 'eu-west-1',
+        credentials: credentials ?? undefined,
+        guardrailConfig: guardrailConfig
+          ? {
+              guardrailIdentifier: guardrailConfig.guardrailId!,
+              guardrailVersion: guardrailConfig.guardrailVersion!,
+            }
+          : undefined,
       });
 
       const botMessage = this.messageRepo.create({

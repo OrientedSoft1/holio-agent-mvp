@@ -4,9 +4,9 @@ import { Phone, ArrowRight, ChevronDown } from 'lucide-react'
 import api from '../services/api.service'
 
 const COUNTRY_CODES = [
+  { code: '+47', country: 'NO', flag: '🇳🇴' },
   { code: '+1', country: 'US', flag: '🇺🇸' },
   { code: '+44', country: 'UK', flag: '🇬🇧' },
-  { code: '+47', country: 'NO', flag: '🇳🇴' },
   { code: '+49', country: 'DE', flag: '🇩🇪' },
   { code: '+33', country: 'FR', flag: '🇫🇷' },
   { code: '+46', country: 'SE', flag: '🇸🇪' },
@@ -23,7 +23,9 @@ const COUNTRY_CODES = [
 export default function LoginPage() {
   const navigate = useNavigate()
   const [phone, setPhone] = useState('')
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0])
+  const [selectedCountry, setSelectedCountry] = useState(
+    COUNTRY_CODES.find((c) => c.country === 'NO') ?? COUNTRY_CODES[0],
+  )
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

@@ -15,7 +15,29 @@ export interface Company {
   slug: string
   logoUrl: string | null
   description: string | null
+  bedrockRegion?: string
+  bedrockConfig?: BedrockConfig | null
   createdAt: string
+}
+
+export interface BedrockConfig {
+  accessKeyId?: string
+  secretAccessKeyHint?: string
+  region: string
+  allowedModels?: string[]
+  guardrailId?: string
+  guardrailVersion?: string
+  defaultModelId?: string
+  maxTokensBudget?: number
+  isConfigured: boolean
+}
+
+export interface BedrockModel {
+  modelId: string
+  modelName: string
+  provider: string
+  inputModalities: string[]
+  outputModalities: string[]
 }
 
 export interface CompanyMember {

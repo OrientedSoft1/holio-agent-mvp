@@ -7,11 +7,20 @@ interface InvokeConfig {
   temperature?: number;
   maxTokens?: number;
   region?: string;
+  credentials?: {
+    accessKeyId: string;
+    secretAccessKey: string;
+  };
+  guardrailConfig?: {
+    guardrailIdentifier: string;
+    guardrailVersion: string;
+  };
 }
 
 interface InvokeResult {
   content: string;
   tokensUsed: number;
+  stopReason?: string;
 }
 
 @Injectable()
@@ -23,16 +32,24 @@ export class BedrockService {
       const { BedrockRuntimeClient, ConverseCommand } =
         await import('@aws-sdk/client-bedrock-runtime');
 
-      const client = new BedrockRuntimeClient({
+      const clientOptions: Record<string, unknown> = {
         region: config.region ?? 'eu-west-1',
-      });
+      };
+      if (config.credentials) {
+        clientOptions.credentials = {
+          accessKeyId: config.credentials.accessKeyId,
+          secretAccessKey: config.credentials.secretAccessKey,
+        };
+      }
+
+      const client = new BedrockRuntimeClient(clientOptions);
 
       const messages = config.messages.map((m) => ({
         role: m.role,
         content: [{ text: m.content }],
       }));
 
-      const command = new ConverseCommand({
+      const commandInput: Record<string, unknown> = {
         modelId: config.modelId,
         system: [{ text: config.systemPrompt }],
         messages,
@@ -40,8 +57,16 @@ export class BedrockService {
           temperature: config.temperature ?? 0.7,
           maxTokens: config.maxTokens ?? 2048,
         },
-      });
+      };
 
+      if (config.guardrailConfig) {
+        commandInput.guardrailConfig = {
+          guardrailIdentifier: config.guardrailConfig.guardrailIdentifier,
+          guardrailVersion: config.guardrailConfig.guardrailVersion,
+        };
+      }
+
+      const command = new ConverseCommand(commandInput as any);
       const response = await client.send(command);
 
       const outputContent = response.output?.message?.content?.[0]?.text ?? '';
@@ -51,6 +76,7 @@ export class BedrockService {
       return {
         content: outputContent,
         tokensUsed: inputTokens + outputTokens,
+        stopReason: response.stopReason,
       };
     } catch (error) {
       this.logger.warn(
@@ -67,16 +93,24 @@ export class BedrockService {
       const { BedrockRuntimeClient, ConverseStreamCommand } =
         await import('@aws-sdk/client-bedrock-runtime');
 
-      const client = new BedrockRuntimeClient({
+      const clientOptions: Record<string, unknown> = {
         region: config.region ?? 'eu-west-1',
-      });
+      };
+      if (config.credentials) {
+        clientOptions.credentials = {
+          accessKeyId: config.credentials.accessKeyId,
+          secretAccessKey: config.credentials.secretAccessKey,
+        };
+      }
+
+      const client = new BedrockRuntimeClient(clientOptions);
 
       const messages = config.messages.map((m) => ({
         role: m.role,
         content: [{ text: m.content }],
       }));
 
-      const command = new ConverseStreamCommand({
+      const commandInput: Record<string, unknown> = {
         modelId: config.modelId,
         system: [{ text: config.systemPrompt }],
         messages,
@@ -84,8 +118,16 @@ export class BedrockService {
           temperature: config.temperature ?? 0.7,
           maxTokens: config.maxTokens ?? 2048,
         },
-      });
+      };
 
+      if (config.guardrailConfig) {
+        commandInput.guardrailConfig = {
+          guardrailIdentifier: config.guardrailConfig.guardrailIdentifier,
+          guardrailVersion: config.guardrailConfig.guardrailVersion,
+        };
+      }
+
+      const command = new ConverseStreamCommand(commandInput as any);
       const response = await client.send(command);
 
       if (response.stream) {

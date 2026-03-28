@@ -47,6 +47,17 @@ export class Company {
   @Column({ default: 'eu-west-1' })
   bedrockRegion: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  bedrockConfig: {
+    accessKeyId?: string;
+    secretAccessKey?: string;
+    allowedModels?: string[];
+    guardrailId?: string;
+    guardrailVersion?: string;
+    defaultModelId?: string;
+    maxTokensBudget?: number;
+  } | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
