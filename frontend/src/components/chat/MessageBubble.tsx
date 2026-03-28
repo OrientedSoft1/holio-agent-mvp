@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
-import { Check, CheckCheck, X } from 'lucide-react'
+import { Check, CheckCheck, X, Clock } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import type { Message, MessageMetadata, GroupReadReceipt } from '../../types'
+import type { Message, MessageMetadata, GroupReadReceipt, MessageReaction } from '../../types'
 import api from '../../services/api.service'
 import ImageMessage from '../messages/ImageMessage'
 import ImageViewer from '../messages/ImageViewer'
@@ -11,6 +11,9 @@ import FileMessage from '../messages/FileMessage'
 import GifMessage from '../messages/GifMessage'
 import LinkPreview from '../messages/LinkPreview'
 import BotMessage from '../messages/BotMessage'
+import PollMessage from '../messages/PollMessage'
+import ReactionBar from '../messages/ReactionBar'
+import ReactionPicker from '../messages/ReactionPicker'
 
 export interface MessageData {
   id: string
@@ -25,6 +28,9 @@ export interface MessageData {
   type: Message['type']
   fileUrl?: string | null
   metadata?: MessageMetadata | null
+  reactions?: MessageReaction[]
+  scheduledAt?: string | null
+  currentUserId?: string
 }
 
 interface MessageBubbleProps {
@@ -57,7 +63,7 @@ function GroupReadPopup({
   })
 
   return (
-    <div className="absolute right-0 bottom-6 z-50 w-48 rounded-lg border border-gray-100 bg-white p-2 shadow-lg">
+    <div className="absolute right-0 bottom-6 z-50 w-48 rounded-lg border border-gray-100 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[11px] font-semibold text-holio-text">Read by</span>
         <button
@@ -93,9 +99,36 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   const [viewerImages, setViewerImages] = useState<string[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
   const [showReadPopup, setShowReadPopup] = useState(false)
+  const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [reactions, setReactions] = useState<MessageReaction[]>(message.reactions ?? [])
 
   const isBotMessage =
     message.senderType === 'bot' || message.type === 'botResult'
+
+  const isScheduled = !!message.scheduledAt
+
+  const handleReact = async (emoji: string) => {
+    setShowReactionPicker(false)
+    try {
+      await api.post(`/messages/${message.id}/reactions`, { emoji })
+      setReactions((prev) => {
+        const existing = prev.find((r) => r.emoji === emoji)
+        if (existing) {
+          if (existing.reacted) {
+            return existing.count <= 1
+              ? prev.filter((r) => r.emoji !== emoji)
+              : prev.map((r) => r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r)
+          }
+          return prev.map((r) => r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r)
+        }
+        return [...prev, { emoji, count: 1, reacted: true }]
+      })
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleToggleReaction = (emoji: string) => handleReact(emoji)
 
   if (isBotMessage) {
     return (
@@ -105,6 +138,34 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         botType={message.metadata?.botType}
         timestamp={message.timestamp}
       />
+    )
+  }
+
+  if (message.type === 'poll' && message.metadata?.poll) {
+    const poll = message.metadata.poll
+    return (
+      <div className={cn('flex', message.isMine ? 'justify-end' : 'justify-start')}>
+        <div>
+          {!message.isMine && message.isGroup && message.senderName && (
+            <p className="mb-1 text-xs font-medium text-holio-orange">{message.senderName}</p>
+          )}
+          <PollMessage
+            poll={poll}
+            isMine={message.isMine}
+            currentUserId={message.currentUserId}
+            onVote={async (optionId) => {
+              try { await api.post(`/messages/${message.id}/poll-vote`, { optionId }) } catch { /* ignored */ }
+            }}
+            onClose={async () => {
+              try { await api.post(`/messages/${message.id}/poll-close`) } catch { /* ignored */ }
+            }}
+          />
+          <div className={cn('mt-1 flex items-center gap-1', message.isMine ? 'justify-end' : 'justify-start')}>
+            <span className="text-[11px] text-holio-muted">{message.timestamp}</span>
+          </div>
+          <ReactionBar reactions={reactions} onToggle={handleToggleReaction} onAdd={() => setShowReactionPicker(true)} />
+        </div>
+      </div>
     )
   }
 
@@ -127,7 +188,6 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             onImageClick={openViewer}
           />
         )
-
       case 'voice':
         return message.fileUrl ? (
           <VoiceMessage
@@ -137,7 +197,6 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             isMine={message.isMine}
           />
         ) : null
-
       case 'videoNote':
         return message.fileUrl ? (
           <VideoNote
@@ -146,7 +205,6 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             isMine={message.isMine}
           />
         ) : null
-
       case 'file': {
         const file = message.metadata?.files?.[0]
         return file ? (
@@ -158,7 +216,6 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           />
         ) : null
       }
-
       case 'gif':
         return message.fileUrl ? (
           <GifMessage
@@ -167,7 +224,6 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             isMine={message.isMine}
           />
         ) : null
-
       default:
         return (
           <>
@@ -193,6 +249,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
               <span className="text-[11px] text-holio-muted">{message.timestamp}</span>
               {message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5 text-holio-muted" /> : <Check className="h-3.5 w-3.5 text-holio-muted" />)}
             </div>
+            <ReactionBar reactions={reactions} onToggle={handleToggleReaction} onAdd={() => setShowReactionPicker(true)} />
           </div>
         </div>
         {viewerImages && (
@@ -204,73 +261,91 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <>
-      <div className={cn('flex', message.isMine ? 'justify-end' : 'justify-start')}>
-        <div
-          className={cn(
-            'max-w-[70%]',
-            isMedia ? 'overflow-hidden rounded-2xl' : 'px-3.5 py-2',
-            message.isMine
-              ? isMedia
-                ? 'rounded-2xl rounded-br-sm'
-                : 'rounded-2xl rounded-br-sm bg-holio-orange text-white'
-              : isMedia
-                ? 'rounded-2xl rounded-bl-sm'
-                : 'rounded-2xl rounded-bl-sm bg-white text-holio-text',
+      <div
+        className={cn('group relative flex', message.isMine ? 'justify-end' : 'justify-start')}
+        onMouseEnter={() => setShowReactionPicker(true)}
+        onMouseLeave={() => setShowReactionPicker(false)}
+      >
+        <div className="relative max-w-[70%]">
+          {showReactionPicker && (
+            <ReactionPicker onReact={handleReact} isMine={message.isMine} />
           )}
-        >
-          {isMedia ? (
-            <div className={cn(
-              'rounded-2xl p-1',
-              message.isMine
-                ? 'rounded-br-sm bg-holio-orange'
-                : 'rounded-bl-sm bg-white',
-            )}>
-              {!message.isMine && message.isGroup && message.senderName && (
-                <p className="mb-1 px-2 pt-1 text-xs font-medium text-holio-orange">{message.senderName}</p>
-              )}
-              {renderContent()}
-              <div className={cn(
-                'mt-1 flex items-center justify-end gap-1 px-2 pb-1',
-                message.isMine ? 'text-white/70' : 'text-holio-muted',
-              )}>
-                <span className="text-[11px]">{message.timestamp}</span>
-                {message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />)}
-              </div>
+
+          {isScheduled && (
+            <div className="mb-1 flex items-center gap-1 text-[11px] text-holio-muted">
+              <Clock className="h-3 w-3" />
+              <span>Scheduled for {new Date(message.scheduledAt!).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
-          ) : (
-            <>
-              {!message.isMine && message.isGroup && message.senderName && (
-                <p className="mb-0.5 text-xs font-medium text-holio-orange">{message.senderName}</p>
-              )}
-              {renderContent()}
-              <div className={cn(
-                'mt-1 flex items-center justify-end gap-1',
-                message.isMine ? 'text-white/70' : 'text-holio-muted',
-              )}>
-                {message.isMine && message.isGroup && (message.readCount ?? 0) > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowReadPopup(!showReadPopup)}
-                      className={cn(
-                        'mr-1 text-[10px] underline',
-                        message.isMine ? 'text-white/60 hover:text-white/80' : 'text-holio-muted hover:text-holio-text',
-                      )}
-                    >
-                      Read by {message.readCount}
-                    </button>
-                    {showReadPopup && (
-                      <GroupReadPopup
-                        messageId={message.id}
-                        onClose={() => setShowReadPopup(false)}
-                      />
-                    )}
-                  </div>
-                )}
-                <span className="text-[11px]">{message.timestamp}</span>
-                {message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />)}
-              </div>
-            </>
           )}
+
+          <div
+            className={cn(
+              isMedia ? 'overflow-hidden rounded-2xl' : 'px-3.5 py-2',
+              message.isMine
+                ? isMedia
+                  ? 'rounded-2xl rounded-br-sm'
+                  : 'rounded-2xl rounded-br-sm bg-holio-orange text-white'
+                : isMedia
+                  ? 'rounded-2xl rounded-bl-sm'
+                  : 'rounded-2xl rounded-bl-sm bg-white text-holio-text dark:bg-gray-800 dark:text-white',
+            )}
+          >
+            {isMedia ? (
+              <div className={cn(
+                'rounded-2xl p-1',
+                message.isMine
+                  ? 'rounded-br-sm bg-holio-orange'
+                  : 'rounded-bl-sm bg-white dark:bg-gray-800',
+              )}>
+                {!message.isMine && message.isGroup && message.senderName && (
+                  <p className="mb-1 px-2 pt-1 text-xs font-medium text-holio-orange">{message.senderName}</p>
+                )}
+                {renderContent()}
+                <div className={cn(
+                  'mt-1 flex items-center justify-end gap-1 px-2 pb-1',
+                  message.isMine ? 'text-white/70' : 'text-holio-muted',
+                )}>
+                  <span className="text-[11px]">{message.timestamp}</span>
+                  {message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />)}
+                </div>
+              </div>
+            ) : (
+              <>
+                {!message.isMine && message.isGroup && message.senderName && (
+                  <p className="mb-0.5 text-xs font-medium text-holio-orange">{message.senderName}</p>
+                )}
+                {renderContent()}
+                <div className={cn(
+                  'mt-1 flex items-center justify-end gap-1',
+                  message.isMine ? 'text-white/70' : 'text-holio-muted',
+                )}>
+                  {message.isMine && message.isGroup && (message.readCount ?? 0) > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowReadPopup(!showReadPopup)}
+                        className={cn(
+                          'mr-1 text-[10px] underline',
+                          message.isMine ? 'text-white/60 hover:text-white/80' : 'text-holio-muted hover:text-holio-text',
+                        )}
+                      >
+                        Read by {message.readCount}
+                      </button>
+                      {showReadPopup && (
+                        <GroupReadPopup
+                          messageId={message.id}
+                          onClose={() => setShowReadPopup(false)}
+                        />
+                      )}
+                    </div>
+                  )}
+                  <span className="text-[11px]">{message.timestamp}</span>
+                  {message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />)}
+                </div>
+              </>
+            )}
+          </div>
+
+          <ReactionBar reactions={reactions} onToggle={handleToggleReaction} onAdd={() => setShowReactionPicker(true)} />
         </div>
       </div>
       {viewerImages && (

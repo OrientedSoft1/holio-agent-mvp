@@ -7,6 +7,8 @@ import {
   Star,
   CircleDot,
   Settings,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import CompanySwitcher from './CompanySwitcher'
 import { useUiStore, type NavItem } from '../../stores/uiStore'
@@ -25,6 +27,8 @@ const navItems: { id: NavItem; label: string; icon: typeof LayoutGrid; badge?: n
 export default function Sidebar() {
   const activeNavItem = useUiStore((s) => s.activeNavItem)
   const setActiveNavItem = useUiStore((s) => s.setActiveNavItem)
+  const darkMode = useUiStore((s) => s.darkMode)
+  const toggleDarkMode = useUiStore((s) => s.toggleDarkMode)
 
   return (
     <aside className="flex h-screen w-[70px] flex-shrink-0 flex-col bg-holio-dark">
@@ -65,7 +69,14 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="flex flex-col items-center pb-4">
+      <div className="flex flex-col items-center gap-1 pb-4">
+        <button
+          onClick={toggleDarkMode}
+          className="flex h-12 w-12 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
+          title={darkMode ? 'Light mode' : 'Dark mode'}
+        >
+          {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
         <button className="flex h-12 w-12 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white">
           <Settings className="h-5 w-5" />
         </button>

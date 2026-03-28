@@ -120,6 +120,9 @@ export default function ChatViewPanel() {
                     type: msg.type,
                     fileUrl: msg.fileUrl,
                     metadata: msg.metadata,
+                    reactions: msg.reactions,
+                    scheduledAt: msg.scheduledAt,
+                    currentUserId,
                   }}
                 />
               )

@@ -63,10 +63,15 @@ export class BotWorkerService {
         relations: ['sender'],
       });
 
-      const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = recentMessages
+      const conversationMessages: Array<{
+        role: 'user' | 'assistant';
+        content: string;
+      }> = recentMessages
         .reverse()
         .map((msg) => ({
-          role: (msg.senderType === SenderType.BOT ? 'assistant' : 'user') as 'user' | 'assistant',
+          role: (msg.senderType === SenderType.BOT ? 'assistant' : 'user') as
+            | 'user'
+            | 'assistant',
           content:
             msg.senderType === SenderType.USER && msg.sender
               ? `[${msg.sender.firstName ?? msg.sender.username ?? 'User'}]: ${msg.content ?? ''}`

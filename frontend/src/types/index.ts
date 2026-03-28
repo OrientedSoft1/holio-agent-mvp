@@ -68,6 +68,26 @@ export interface MessageMetadata {
   botId?: string
   botName?: string
   botType?: Bot['type']
+  poll?: PollMetadata
+  scheduledAt?: string
+}
+
+export interface PollMetadata {
+  question: string
+  options: { id: string; text: string; votes: number; voters?: string[] }[]
+  totalVotes: number
+  isAnonymous?: boolean
+  isQuiz?: boolean
+  correctOptionId?: string
+  isClosed?: boolean
+  myVote?: string
+  creatorId?: string
+}
+
+export interface MessageReaction {
+  emoji: string
+  count: number
+  reacted: boolean
 }
 
 export interface Message {
@@ -76,10 +96,12 @@ export interface Message {
   senderId: string
   senderType?: 'user' | 'bot' | 'system'
   content: string
-  type: 'text' | 'image' | 'file' | 'voice' | 'videoNote' | 'gif' | 'system' | 'botResult'
+  type: 'text' | 'image' | 'file' | 'voice' | 'videoNote' | 'gif' | 'system' | 'botResult' | 'poll'
   fileUrl: string | null
   replyToId: string | null
   metadata: MessageMetadata | null
+  reactions?: MessageReaction[]
+  scheduledAt?: string | null
   createdAt: string
   updatedAt: string
   sender: User

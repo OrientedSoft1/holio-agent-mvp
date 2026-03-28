@@ -18,6 +18,7 @@ import { ChatsService } from '../chats/chats.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { UpdateMessageDto } from './dto/update-message.dto.js';
 import { ForwardMessageDto } from './dto/forward-message.dto.js';
+import { ScheduleMessageDto } from './dto/schedule-message.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { User } from '../users/entities/user.entity.js';
@@ -118,5 +119,55 @@ export class MessagesController {
     @CurrentUser() user: User,
   ) {
     return this.messagesService.getGroupReadReceipts(id, user.id);
+  }
+
+  // ──── Scheduled Messages ────
+
+  @Post('chats/:chatId/messages/schedule')
+  @ApiOperation({ summary: 'Schedule a message for later delivery' })
+  async scheduleMessage(
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @CurrentUser() user: User,
+    @Body() dto: ScheduleMessageDto,
+  ) {
+    await this.chatsService.checkMembership(chatId, user.id);
+    return this.messagesService.scheduleMessage(chatId, user.id, dto);
+  }
+
+  @Get('chats/:chatId/messages/scheduled')
+  @ApiOperation({ summary: 'List scheduled messages in a chat' })
+  async getScheduledMessages(
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.chatsService.checkMembership(chatId, user.id);
+    return this.messagesService.getScheduledMessages(chatId, user.id);
+  }
+
+  @Delete('messages/:id/schedule')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cancel a scheduled message' })
+  cancelScheduledMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.messagesService.cancelScheduledMessage(id, user.id);
+  }
+
+  // ──── Saved Messages ────
+
+  @Get('saved-messages')
+  @ApiOperation({ summary: 'Get saved messages for the current user' })
+  getSavedMessages(@CurrentUser() user: User) {
+    return this.messagesService.getSavedMessages(user.id);
+  }
+
+  @Post('saved-messages/:messageId')
+  @ApiOperation({ summary: 'Save a message to Saved Messages' })
+  saveMessage(
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.messagesService.saveMessage(messageId, user.id);
   }
 }

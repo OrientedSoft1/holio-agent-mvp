@@ -11,12 +11,15 @@ import {
   Users,
   Headphones,
   Server,
+  Clock,
+  X,
 } from 'lucide-react'
 import { useChatStore } from '../../stores/chatStore'
 import { useBotStore } from '../../stores/botStore'
 import VoiceRecorder from '../messages/VoiceRecorder'
 import GifPicker from './GifPicker'
 import AttachMenu from './AttachMenu'
+import EmojiPicker from './EmojiPicker'
 import api from '../../services/api.service'
 import { cn } from '../../lib/utils'
 
@@ -48,9 +51,13 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [recording, setRecording] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showMentionMenu, setShowMentionMenu] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionIndex, setMentionIndex] = useState(0)
+  const [showSchedule, setShowSchedule] = useState(false)
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
   const sendMessage = useChatStore((s) => s.sendMessage)
   const companyBots = useBotStore((s) => s.companyBots)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -67,21 +74,30 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     )
   }, [companyBots, mentionQuery])
 
-  const handleSend = async () => {
+  const handleSend = async (scheduledAt?: string) => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
 
     setSending(true)
     setText('')
     setShowMentionMenu(false)
+    setShowSchedule(false)
     try {
-      await sendMessage(chatId, trimmed)
+      await sendMessage(chatId, trimmed, 'text', scheduledAt ? { metadata: { scheduledAt } } : undefined)
     } catch {
       setText(trimmed)
     } finally {
       setSending(false)
       textareaRef.current?.focus()
     }
+  }
+
+  const handleScheduleSend = () => {
+    if (!scheduleDate || !scheduleTime) return
+    const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+    handleSend(scheduledAt)
+    setScheduleDate('')
+    setScheduleTime('')
   }
 
   const insertMention = useCallback(
@@ -157,6 +173,26 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       setShowMentionMenu(false)
     }
   }
+
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    const el = textareaRef.current
+    if (!el) {
+      setText((prev) => prev + emoji)
+      return
+    }
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const before = text.slice(0, start)
+    const after = text.slice(end)
+    const newText = before + emoji + after
+    setText(newText)
+    setTimeout(() => {
+      const newPos = start + emoji.length
+      el.selectionStart = newPos
+      el.selectionEnd = newPos
+      el.focus()
+    }, 0)
+  }, [text])
 
   const uploadFile = useCallback(async (file: File): Promise<{ url: string }> => {
     const formData = new FormData()
@@ -235,7 +271,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   }
 
   return (
-    <div className="relative flex items-end gap-2 border-t border-gray-100 bg-white p-3">
+    <div className="relative flex items-end gap-2 border-t border-gray-100 bg-white p-3 dark:bg-[#152022] dark:border-[#1E3035]">
       <input
         ref={photoInputRef}
         type="file"
@@ -267,9 +303,8 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       </div>
 
       <div className="relative flex-1">
-        {/* @mention dropdown */}
         {showMentionMenu && filteredBots.length > 0 && (
-          <div className="absolute bottom-full left-0 z-10 mb-1 w-64 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+          <div className="absolute bottom-full left-0 z-10 mb-1 w-64 rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
             {filteredBots.map((bot, idx) => {
               const Icon = BOT_TYPE_ICON[bot.type] ?? Bot
               const color = BOT_TYPE_COLOR[bot.type] ?? BOT_TYPE_COLOR.custom
@@ -284,7 +319,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
                     'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
                     idx === mentionIndex
                       ? 'bg-holio-lavender/20'
-                      : 'hover:bg-gray-50',
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700',
                   )}
                 >
                   <div
@@ -309,7 +344,6 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           </div>
         )}
 
-        {/* Overlay for styled @mentions (hidden, just for visual rendering) */}
         <div
           className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-2.5 text-sm text-transparent"
           aria-hidden
@@ -324,16 +358,28 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           onKeyDown={handleKeyDown}
           placeholder="Write a message... (type @ to mention a bot)"
           rows={1}
-          className="w-full resize-none rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-holio-text outline-none placeholder:text-holio-muted focus:ring-2 focus:ring-holio-lavender/50"
+          className="w-full resize-none rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-holio-text outline-none placeholder:text-holio-muted focus:ring-2 focus:ring-holio-lavender/50 dark:bg-[#1A2A2D] dark:text-white"
           style={{ maxHeight: 120 }}
         />
       </div>
 
-      <button
-        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-      >
-        <Smile className="h-5 w-5" />
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowGifPicker(false) }}
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+        >
+          <Smile className="h-5 w-5" />
+        </button>
+        {showEmojiPicker && (
+          <EmojiPicker
+            onSelect={(emoji) => {
+              handleEmojiSelect(emoji)
+              setShowEmojiPicker(false)
+            }}
+            onClose={() => setShowEmojiPicker(false)}
+          />
+        )}
+      </div>
 
       <div className="relative">
         <button
@@ -351,13 +397,52 @@ export default function MessageInput({ chatId }: MessageInputProps) {
       </div>
 
       {text.trim() ? (
-        <button
-          onClick={handleSend}
-          disabled={sending}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-50"
-        >
-          <Send className="h-5 w-5" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => handleSend()}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setShowSchedule(!showSchedule)
+            }}
+            disabled={sending}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-50"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+          {showSchedule && (
+            <div className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-holio-text">
+                  <Clock className="h-4 w-4 text-holio-orange" />
+                  Schedule Message
+                </div>
+                <button onClick={() => setShowSchedule(false)} className="text-holio-muted hover:text-holio-text">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-holio-text outline-none focus:border-holio-orange dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <input
+                type="time"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+                className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-holio-text outline-none focus:border-holio-orange dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+              <button
+                onClick={handleScheduleSend}
+                disabled={!scheduleDate || !scheduleTime}
+                className="w-full rounded-lg bg-holio-orange py-2 text-xs font-medium text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-50"
+              >
+                Schedule
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
         <button
           onClick={() => setRecording(true)}

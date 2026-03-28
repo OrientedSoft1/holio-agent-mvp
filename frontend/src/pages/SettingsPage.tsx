@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Shield, Bell, User as UserIcon, Eye, Phone, Image, Forward, BookOpen, Lock } from 'lucide-react'
+import { Shield, Bell, User as UserIcon, Eye, Phone, Image, Forward, BookOpen, Lock, Moon, Sun } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import { useUiStore } from '../stores/uiStore'
 import api from '../services/api.service'
 import type { PrivacySettings } from '../types'
 
@@ -14,6 +15,8 @@ const PRIVACY_OPTIONS: { value: PrivacyOption; label: string }[] = [
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user)
+  const darkMode = useUiStore((s) => s.darkMode)
+  const toggleDarkMode = useUiStore((s) => s.toggleDarkMode)
 
   const [privacy, setPrivacy] = useState<PrivacySettings>({
     lastSeen: 'everybody',
@@ -128,6 +131,32 @@ export default function SettingsPage() {
                 <p className="mt-1 text-sm text-holio-text">{user.bio}</p>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* Appearance Section */}
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-semibold text-holio-text">Appearance</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {darkMode ? <Moon className="h-4.5 w-4.5 text-holio-muted" /> : <Sun className="h-4.5 w-4.5 text-holio-muted" />}
+              <div>
+                <p className="text-sm font-medium text-holio-text">Dark Mode</p>
+                <p className="text-xs text-holio-muted">Toggle between light and dark theme</p>
+              </div>
+            </div>
+            <button
+              onClick={toggleDarkMode}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                darkMode ? 'bg-holio-orange' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  darkMode ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </section>
 

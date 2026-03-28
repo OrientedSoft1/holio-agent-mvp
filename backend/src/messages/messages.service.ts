@@ -4,27 +4,40 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { Message } from './entities/message.entity.js';
 import { ReadReceipt } from './entities/read-receipt.entity.js';
 import { Chat } from '../chats/entities/chat.entity.js';
 import { ChatMember } from '../chats/entities/chat-member.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
+import { ScheduleMessageDto } from './dto/schedule-message.dto.js';
 import { LinkPreviewService } from './link-preview.service.js';
-import { MessageType, SenderType, ChatMemberRole } from '../common/enums.js';
+import {
+  MessageType,
+  SenderType,
+  ChatType,
+  ChatMemberRole,
+} from '../common/enums.js';
 
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 const URL_REGEX = /https?:\/\/[^\s<>]+/gi;
 
+const SCHEDULED_CHECK_INTERVAL_MS = 30_000;
+
 @Injectable()
-export class MessagesService {
+export class MessagesService implements OnModuleInit {
   private readonly logger = new Logger(MessagesService.name);
 
   private messageEditEmitter: ((message: Message) => void) | null = null;
+  private scheduledMessageEmitter:
+    | ((chatId: string, message: Message) => void)
+    | null = null;
+  private scheduledInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     @InjectRepository(Message)
@@ -42,6 +55,27 @@ export class MessagesService {
 
   setMessageEditEmitter(emitter: (message: Message) => void): void {
     this.messageEditEmitter = emitter;
+  }
+
+  setScheduledMessageEmitter(
+    emitter: (chatId: string, message: Message) => void,
+  ): void {
+    this.scheduledMessageEmitter = emitter;
+  }
+
+  onModuleInit() {
+    this.scheduledInterval = setInterval(() => {
+      void this.sendScheduledMessages().catch((err) =>
+        this.logger.error(`Scheduled messages check failed: ${err}`),
+      );
+    }, SCHEDULED_CHECK_INTERVAL_MS);
+    this.logger.log('Scheduled messages checker started');
+  }
+
+  onModuleDestroy() {
+    if (this.scheduledInterval) {
+      clearInterval(this.scheduledInterval);
+    }
   }
 
   async create(
@@ -384,6 +418,14 @@ export class MessagesService {
     return { receipts, senderMessageIds };
   }
 
+  async getMessageChatId(messageId: string): Promise<string | null> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+      select: ['id', 'chatId'],
+    });
+    return message?.chatId ?? null;
+  }
+
   /**
    * Check if a message is "delivered" by seeing if the recipient
    * (any member except sender) has an active socket connection.
@@ -431,5 +473,170 @@ export class MessagesService {
     if (fullMessage && this.messageEditEmitter) {
       this.messageEditEmitter(fullMessage);
     }
+  }
+
+  // ──── Scheduled Messages ────
+
+  async scheduleMessage(
+    chatId: string,
+    userId: string,
+    dto: ScheduleMessageDto,
+  ): Promise<Message> {
+    const scheduledAt = new Date(dto.scheduledAt);
+    if (scheduledAt <= new Date()) {
+      throw new BadRequestException('Scheduled time must be in the future');
+    }
+
+    const message = this.messageRepo.create({
+      chatId,
+      senderId: userId,
+      senderType: SenderType.USER,
+      type: dto.type ?? MessageType.TEXT,
+      content: dto.content ?? null,
+      replyToId: dto.replyToId ?? null,
+      fileUrl: dto.fileUrl ?? null,
+      fileName: dto.fileName ?? null,
+      fileSize: dto.fileSize ?? null,
+      mimeType: dto.mimeType ?? null,
+      duration: dto.duration ?? null,
+      thumbnailUrl: dto.thumbnailUrl ?? null,
+      isViewOnce: dto.isViewOnce ?? false,
+      isScheduled: true,
+      scheduledAt,
+    });
+
+    return this.messageRepo.save(message);
+  }
+
+  async getScheduledMessages(chatId: string, userId: string) {
+    return this.messageRepo.find({
+      where: { chatId, senderId: userId, isScheduled: true },
+      order: { scheduledAt: 'ASC' },
+      relations: ['sender'],
+    });
+  }
+
+  async cancelScheduledMessage(
+    messageId: string,
+    userId: string,
+  ): Promise<void> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+    if (message.senderId !== userId) {
+      throw new ForbiddenException(
+        'You can only cancel your own scheduled messages',
+      );
+    }
+    if (!message.isScheduled) {
+      throw new BadRequestException('Message is not scheduled');
+    }
+    await this.messageRepo.remove(message);
+  }
+
+  async sendScheduledMessages(): Promise<number> {
+    const now = new Date();
+    const messages = await this.messageRepo.find({
+      where: {
+        isScheduled: true,
+        scheduledAt: LessThanOrEqual(now),
+      },
+      relations: ['sender', 'replyTo'],
+    });
+
+    let sent = 0;
+    for (const message of messages) {
+      message.isScheduled = false;
+      message.scheduledAt = null;
+      await this.messageRepo.save(message);
+      await this.chatRepo.update(message.chatId, { lastMessageAt: new Date() });
+
+      if (this.scheduledMessageEmitter) {
+        this.scheduledMessageEmitter(message.chatId, message);
+      }
+      sent++;
+    }
+
+    if (sent > 0) {
+      this.logger.log(`Sent ${sent} scheduled message(s)`);
+    }
+    return sent;
+  }
+
+  // ──── Saved Messages ────
+
+  async getOrCreateSavedMessagesChat(userId: string): Promise<Chat> {
+    const existing = await this.chatRepo
+      .createQueryBuilder('chat')
+      .innerJoin(
+        ChatMember,
+        'cm',
+        'cm."chatId" = chat.id AND cm."userId" = :userId',
+        { userId },
+      )
+      .where('chat.type = :type', { type: ChatType.DM })
+      .andWhere("chat.metadata->>'isSavedMessages' = :flag", { flag: 'true' })
+      .getOne();
+
+    if (existing) return existing;
+
+    const chat = this.chatRepo.create({
+      type: ChatType.DM,
+      name: 'Saved Messages',
+      metadata: { isSavedMessages: true },
+    });
+    const saved = await this.chatRepo.save(chat);
+
+    const member = this.chatMemberRepo.create({
+      chatId: saved.id,
+      userId,
+      role: ChatMemberRole.OWNER,
+    });
+    await this.chatMemberRepo.save(member);
+
+    return saved;
+  }
+
+  async getSavedMessages(userId: string) {
+    const chat = await this.getOrCreateSavedMessagesChat(userId);
+    return this.findByChatId(chat.id);
+  }
+
+  async saveMessage(messageId: string, userId: string): Promise<Message> {
+    const original = await this.messageRepo.findOne({
+      where: { id: messageId },
+    });
+    if (!original) {
+      throw new NotFoundException('Message not found');
+    }
+
+    const savedChat = await this.getOrCreateSavedMessagesChat(userId);
+
+    const forwarded = this.messageRepo.create({
+      chatId: savedChat.id,
+      senderId: userId,
+      senderType: SenderType.USER,
+      type: original.type,
+      content: original.content,
+      fileUrl: original.fileUrl,
+      fileName: original.fileName,
+      fileSize: original.fileSize,
+      mimeType: original.mimeType,
+      duration: original.duration,
+      thumbnailUrl: original.thumbnailUrl,
+      forwardedFromId: original.id,
+      metadata: { savedFromChatId: original.chatId },
+    });
+
+    const saved = await this.messageRepo.save(forwarded);
+    await this.chatRepo.update(savedChat.id, { lastMessageAt: new Date() });
+
+    return this.messageRepo.findOne({
+      where: { id: saved.id },
+      relations: ['sender', 'forwardedFrom'],
+    }) as Promise<Message>;
   }
 }

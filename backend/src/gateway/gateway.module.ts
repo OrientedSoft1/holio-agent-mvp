@@ -6,6 +6,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { UsersModule } from '../users/users.module.js';
 import { BotsModule } from '../bots/bots.module.js';
 import { BotWorkerModule } from '../bot-worker/bot-worker.module.js';
+import { ReactionsModule } from '../reactions/reactions.module.js';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { BotWorkerModule } from '../bot-worker/bot-worker.module.js';
     UsersModule,
     BotsModule,
     BotWorkerModule,
+    ReactionsModule,
   ],
   providers: [AppGateway],
   exports: [AppGateway],

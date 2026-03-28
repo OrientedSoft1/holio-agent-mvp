@@ -17,6 +17,7 @@ import { MessagesService } from '../messages/messages.service.js';
 import { UsersService } from '../users/users.service.js';
 import { BotsService } from '../bots/bots.service.js';
 import { BotWorkerService } from '../bot-worker/bot-worker.service.js';
+import { ReactionsService } from '../reactions/reactions.service.js';
 
 interface AuthPayload {
   sub: string;
@@ -43,6 +44,7 @@ export class AppGateway
     private readonly usersService: UsersService,
     private readonly botsService: BotsService,
     private readonly botWorkerService: BotWorkerService,
+    private readonly reactionsService: ReactionsService,
   ) {}
 
   afterInit() {
@@ -50,6 +52,10 @@ export class AppGateway
 
     this.messagesService.setMessageEditEmitter((message) => {
       this.server.to(`chat:${message.chatId}`).emit('message:edit', message);
+    });
+
+    this.messagesService.setScheduledMessageEmitter((chatId, message) => {
+      this.server.to(`chat:${chatId}`).emit('message:new', message);
     });
 
     this.botWorkerService.setMessageEmitter((chatId, message) => {
@@ -277,6 +283,88 @@ export class AppGateway
     return message;
   }
 
+  // ──── Reactions ────
+
+  @SubscribeMessage('reaction:add')
+  async handleReactionAdd(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string; emoji: string },
+  ) {
+    const userId = this.getSocketUserId(client);
+
+    const result = await this.reactionsService.addReaction(
+      data.messageId,
+      userId,
+      data.emoji,
+    );
+
+    const chatId = await this.getMessageChatId(data.messageId);
+    if (chatId) {
+      this.server.to(`chat:${chatId}`).emit('reaction:update', {
+        messageId: data.messageId,
+        userId,
+        emoji: data.emoji,
+        action: result.action,
+      });
+    }
+
+    return result;
+  }
+
+  @SubscribeMessage('reaction:remove')
+  async handleReactionRemove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: string; emoji: string },
+  ) {
+    const userId = this.getSocketUserId(client);
+
+    await this.reactionsService.removeReaction(
+      data.messageId,
+      userId,
+      data.emoji,
+    );
+
+    const chatId = await this.getMessageChatId(data.messageId);
+    if (chatId) {
+      this.server.to(`chat:${chatId}`).emit('reaction:update', {
+        messageId: data.messageId,
+        userId,
+        emoji: data.emoji,
+        action: 'removed',
+      });
+    }
+
+    return { success: true };
+  }
+
+  @SubscribeMessage('poll:vote')
+  async handlePollVote(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { pollId: string; optionIndex: number },
+  ) {
+    const userId = this.getSocketUserId(client);
+
+    const vote = await this.reactionsService.vote(
+      data.pollId,
+      userId,
+      data.optionIndex,
+    );
+
+    const results = await this.reactionsService.getResults(data.pollId, userId);
+
+    if (results.poll.messageId) {
+      const chatId = await this.getMessageChatId(results.poll.messageId);
+      if (chatId) {
+        this.server.to(`chat:${chatId}`).emit('poll:update', {
+          pollId: data.pollId,
+          results,
+        });
+      }
+    }
+
+    return vote;
+  }
+
   // ──── Typing ────
 
   @SubscribeMessage('typing:start')
@@ -334,6 +422,10 @@ export class AppGateway
 
   getUserSocketId(userId: string): string | undefined {
     return this.userSockets.get(userId);
+  }
+
+  private async getMessageChatId(messageId: string): Promise<string | null> {
+    return this.messagesService.getMessageChatId(messageId);
   }
 
   private getSocketUserId(client: Socket): string {

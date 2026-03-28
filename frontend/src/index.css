@@ -10,6 +10,41 @@
   --color-holio-muted: #8E8E93;
 }
 
+.dark {
+  --color-holio-offwhite: #0D1517;
+  --color-holio-dark: #0A0F10;
+  --color-holio-text: #E8E8ED;
+  --color-holio-muted: #9E9EA3;
+}
+
+.dark .bg-white {
+  background-color: #152022;
+}
+
+.dark .bg-gray-50 {
+  background-color: #1A2A2D;
+}
+
+.dark .border-gray-100 {
+  border-color: #1E3035;
+}
+
+.dark .border-gray-200 {
+  border-color: #1E3035;
+}
+
+.dark .text-holio-text {
+  color: #E8E8ED;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: #1A2A2D;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #1E3035;
+}
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
