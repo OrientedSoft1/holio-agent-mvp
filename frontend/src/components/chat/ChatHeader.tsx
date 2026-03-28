@@ -19,6 +19,7 @@ export default function ChatHeader({
   isOnline,
 }: ChatHeaderProps) {
   const toggleInfoPanel = useUiStore((s) => s.toggleInfoPanel)
+  const toggleInChatSearch = useUiStore((s) => s.toggleInChatSearch)
 
   return (
     <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
@@ -52,7 +53,13 @@ export default function ChatHeader({
       </button>
 
       <div className="flex items-center gap-1">
-        {[Search, Phone, Pin, MoreVertical].map((Icon, i) => (
+        <button
+          onClick={toggleInChatSearch}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+        >
+          <Search className="h-5 w-5" />
+        </button>
+        {[Phone, Pin, MoreVertical].map((Icon, i) => (
           <button
             key={i}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
