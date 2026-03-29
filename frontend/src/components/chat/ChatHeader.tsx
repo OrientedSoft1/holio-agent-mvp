@@ -1,4 +1,6 @@
-import { ChevronLeft, Phone, MoreVertical } from 'lucide-react'
+import { ArrowLeft, Phone, MoreVertical, Search } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useUiStore } from '../../stores/uiStore'
 
 interface ChatHeaderProps {
@@ -9,6 +11,8 @@ interface ChatHeaderProps {
   status: string
   isOnline: boolean
   onBack?: () => void
+  userId?: string
+  chatId?: string
 }
 
 export default function ChatHeader({
@@ -20,17 +24,20 @@ export default function ChatHeader({
   isOnline,
   onBack,
 }: ChatHeaderProps) {
+  const navigate = useNavigate()
   const toggleInfoPanel = useUiStore((s) => s.toggleInfoPanel)
+  const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
+  const [showMenu, setShowMenu] = useState(false)
 
   return (
-    <div className="flex h-[72px] flex-shrink-0 items-center justify-between border-b border-gray-200 bg-[#fafafa] px-3">
+    <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3">
       <div className="flex items-center gap-2">
         {onBack && (
           <button
             onClick={onBack}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text md:hidden"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
         )}
 
@@ -54,12 +61,12 @@ export default function ChatHeader({
               </div>
             )}
             {isOnline && (
-              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-[#fafafa] bg-green-500" />
+              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
             )}
           </div>
           <div>
-            <h3 className="text-lg font-medium leading-tight text-holio-text">{name}</h3>
-            <p className="text-sm text-holio-muted">{status}</p>
+            <h3 className="text-base font-semibold leading-tight text-holio-text">{name}</h3>
+            <p className="text-xs text-[#8E8E93]">{status}</p>
           </div>
         </button>
       </div>
