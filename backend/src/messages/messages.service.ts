@@ -7,7 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository, LessThanOrEqual, IsNull } from 'typeorm';
 import { Message } from './entities/message.entity.js';
 import { ReadReceipt } from './entities/read-receipt.entity.js';
 import { Chat } from '../chats/entities/chat.entity.js';
@@ -117,9 +117,19 @@ export class MessagesService implements OnModuleInit {
     return fullMessage;
   }
 
-  async findByChatId(chatId: string, page = 1, limit = 50) {
+  async findByChatId(
+    chatId: string,
+    page = 1,
+    limit = 50,
+    filters?: { pinned?: boolean },
+  ) {
+    const where: Record<string, unknown> = { chatId, scheduledAt: IsNull() };
+    if (filters?.pinned) {
+      where.isPinned = true;
+    }
+
     const [data, total] = await this.messageRepo.findAndCount({
-      where: { chatId },
+      where,
       relations: ['sender', 'replyTo'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,

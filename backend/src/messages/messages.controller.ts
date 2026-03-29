@@ -45,12 +45,14 @@ export class MessagesController {
     @CurrentUser() user: User,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('pinned') pinned?: string,
   ) {
     await this.chatsService.checkMembership(chatId, user.id);
     return this.messagesService.findByChatId(
       chatId,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 50,
+      { pinned: pinned === 'true' },
     );
   }
 
