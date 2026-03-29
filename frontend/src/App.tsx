@@ -9,6 +9,8 @@ import CompanySettingsPage from './pages/CompanySettingsPage'
 import ChatPage from './pages/ChatPage'
 import BotsPage from './pages/BotsPage'
 import SettingsPage from './pages/SettingsPage'
+import SettingsAccountPage from './pages/SettingsAccountPage'
+import ContactsListPage from './pages/ContactsListPage'
 import EditProfilePage from './pages/EditProfilePage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -77,6 +79,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <EditProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/account"
+          element={
+            <ProtectedRoute>
+              <SettingsAccountPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contacts"
+          element={
+            <ProtectedRoute>
+              <ContactsListPage />
             </ProtectedRoute>
           }
         />

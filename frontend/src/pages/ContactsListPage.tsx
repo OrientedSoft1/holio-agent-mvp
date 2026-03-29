@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, MapPin, UserPlus, Users, Plus, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, MapPin, UserPlus, Ban, Plus, X } from 'lucide-react'
 import { useContactsStore, type Contact } from '../stores/contactsStore'
 import { cn } from '../lib/utils'
 
 const actionItems = [
-  { icon: MapPin, label: 'Find People Nearby' },
-  { icon: UserPlus, label: 'Invite Friends' },
-  { icon: Users, label: 'Contact Categories' },
-  { icon: Plus, label: 'Add New Contact' },
+  { icon: MapPin, label: 'Find People Nearby', route: '/nearby' },
+  { icon: UserPlus, label: 'Invite Friends', route: '/invite-friends' },
+  { icon: Ban, label: 'Blocked Users', route: '/contacts/blocked' },
+  { icon: Plus, label: 'Add New Contact', route: '/contacts/new' },
 ]
 
 function getInitials(firstName: string, lastName: string | null) {
@@ -32,6 +33,7 @@ function groupByLetter(contacts: Contact[]) {
 }
 
 export default function ContactsListPage() {
+  const navigate = useNavigate()
   const contacts = useContactsStore((s) => s.contacts)
   const fetchContacts = useContactsStore((s) => s.fetchContacts)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -96,10 +98,11 @@ export default function ContactsListPage() {
       <div className="flex-1 overflow-y-auto">
         {/* Action items */}
         <div className="px-4 pt-1 pb-2">
-          {actionItems.map(({ icon: Icon, label }) => (
+          {actionItems.map(({ icon: Icon, label, route }) => (
             <button
               key={label}
               type="button"
+              onClick={() => navigate(route)}
               className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-black/5"
             >
               <Icon className="h-5 w-5 text-holio-orange" />
