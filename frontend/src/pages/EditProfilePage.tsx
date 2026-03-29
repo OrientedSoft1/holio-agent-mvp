@@ -6,6 +6,62 @@ import api from '../services/api.service'
 
 const BIO_MAX = 70
 
+function FloatingField({
+  label,
+  value,
+  onChange,
+  autoFocus,
+  multiline,
+  maxLength,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  autoFocus?: boolean
+  multiline?: boolean
+  maxLength?: number
+}) {
+  const [focused, setFocused] = useState(false)
+  const active = focused || value.length > 0
+
+  return (
+    <div className="relative px-4 py-3">
+      <label
+        className={`pointer-events-none absolute left-4 transition-all duration-200 ${
+          active
+            ? 'top-2 text-xs text-holio-muted'
+            : 'top-4 text-base text-holio-muted'
+        }`}
+      >
+        {label}
+      </label>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => {
+            if (!maxLength || e.target.value.length <= maxLength)
+              onChange(e.target.value)
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          rows={2}
+          className="mt-4 w-full resize-none bg-transparent text-base text-holio-text outline-none"
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          autoFocus={autoFocus}
+          className="mt-4 w-full bg-transparent text-base text-holio-text outline-none"
+        />
+      )}
+    </div>
+  )
+}
+
 export default function EditProfilePage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -77,13 +133,13 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <header className="flex h-14 flex-shrink-0 items-center justify-between bg-white px-4">
-        <h1 className="text-lg font-medium text-holio-text">Edit Profile</h1>
+        <h1 className="text-lg font-semibold text-holio-text">Edit Profile</h1>
         <button
           onClick={() => handleSave()}
           disabled={saving || !firstName.trim()}
-          className="text-base font-medium text-holio-orange disabled:opacity-50"
+          className="text-base font-semibold text-holio-orange disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Done'}
         </button>
@@ -94,7 +150,7 @@ export default function EditProfilePage() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="relative h-[100px] w-[100px] overflow-hidden rounded-full bg-gray-100"
+            className="relative h-24 w-24 overflow-hidden rounded-full bg-gray-100"
           >
             {preview ? (
               <img
@@ -109,7 +165,7 @@ export default function EditProfilePage() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="mt-3 text-sm font-medium text-holio-orange"
+            className="mt-2 text-sm font-medium text-holio-orange"
           >
             Add New Photo
           </button>
@@ -124,50 +180,35 @@ export default function EditProfilePage() {
 
         <div className="mx-4 rounded-2xl bg-white">
           <div className="flex">
-            <div className="flex-1 px-4 py-3">
-              <label className="block text-xs text-holio-muted">
-                First name
-              </label>
-              <input
-                type="text"
+            <div className="flex-1">
+              <FloatingField
+                label="First name"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="mt-0.5 w-full bg-transparent text-base text-holio-text outline-none placeholder:text-holio-muted"
-                placeholder="First name"
+                onChange={setFirstName}
                 autoFocus
               />
             </div>
             <div className="my-3 w-px bg-gray-200" />
-            <div className="flex-1 px-4 py-3">
-              <label className="block text-xs text-holio-muted">
-                Last name
-              </label>
-              <input
-                type="text"
+            <div className="flex-1">
+              <FloatingField
+                label="Last name"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="mt-0.5 w-full bg-transparent text-base text-holio-text outline-none placeholder:text-holio-muted"
-                placeholder="Last name"
+                onChange={setLastName}
               />
             </div>
           </div>
 
-          <div className="mx-4 h-px bg-gray-200" />
+          <div className="mx-4 border-b border-gray-200" />
 
-          <div className="px-4 py-3">
-            <label className="block text-xs text-holio-muted">Bio</label>
-            <textarea
-              value={bio}
-              onChange={(e) => {
-                if (e.target.value.length <= BIO_MAX) setBio(e.target.value)
-              }}
-              rows={2}
-              className="mt-0.5 w-full resize-none bg-transparent text-base text-holio-text outline-none placeholder:text-holio-muted"
-              placeholder="Write something about yourself"
-            />
-          </div>
+          <FloatingField
+            label="Bio"
+            value={bio}
+            onChange={setBio}
+            multiline
+            maxLength={BIO_MAX}
+          />
 
-          <div className="mx-4 h-px bg-gray-200" />
+          <div className="mx-4 border-b border-gray-200" />
 
           <div className="flex items-center justify-between px-4 py-3">
             <div>
@@ -185,11 +226,13 @@ export default function EditProfilePage() {
             </button>
           </div>
 
-          <div className="mx-4 h-px bg-gray-200" />
+          <div className="mx-4 border-b border-gray-200" />
 
           <div className="flex items-center justify-between px-4 py-3">
             <div>
-              <label className="block text-xs text-holio-muted">Username</label>
+              <label className="block text-xs text-holio-muted">
+                Username
+              </label>
               <p className="mt-0.5 text-base text-holio-text">
                 {user?.username ? `@${user.username}` : '—'}
               </p>
@@ -214,7 +257,7 @@ export default function EditProfilePage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="text-base text-red-500"
+            className="text-base font-medium text-red-500"
           >
             Log out
           </button>
