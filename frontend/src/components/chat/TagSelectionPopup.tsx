@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Check } from 'lucide-react'
 import { cn } from '../../lib/utils'
-
-const DEFAULT_TAGS = [
-  { id: 'tag-1', emoji: '💡', name: 'Design idea' },
-  { id: 'tag-2', emoji: '🔗', name: 'Useful site' },
-  { id: 'tag-3', emoji: '📐', name: 'Mockups' },
-  { id: 'tag-4', emoji: '📌', name: 'Important' },
-  { id: 'tag-5', emoji: '💬', name: 'Quotes' },
-]
+import { useTagStore } from '../../stores/tagStore'
 
 interface TagSelectionPopupProps {
   open: boolean
@@ -23,11 +16,21 @@ export default function TagSelectionPopup({
   onSave,
   selectedTagIds = [],
 }: TagSelectionPopupProps) {
+  const tags = useTagStore((s) => s.tags)
+  const loading = useTagStore((s) => s.loading)
+  const fetchTags = useTagStore((s) => s.fetchTags)
+
   const [visible, setVisible] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(selectedTagIds),
   )
   const [prevOpen, setPrevOpen] = useState(open)
+
+  useEffect(() => {
+    if (open && tags.length === 0) {
+      fetchTags()
+    }
+  }, [open, tags.length, fetchTags])
 
   if (open !== prevOpen) {
     setPrevOpen(open)
@@ -102,39 +105,49 @@ export default function TagSelectionPopup({
           </button>
         </div>
 
-        <div className="space-y-2">
-          {DEFAULT_TAGS.map((tag, index) => {
-            const isSelected = selected.has(tag.id)
-            const pillBg = index % 2 === 0 ? 'bg-holio-lavender/30' : 'bg-holio-sage/30'
+        {loading && tags.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        ) : tags.length === 0 ? (
+          <div className="py-8 text-center text-sm text-holio-muted">
+            No tags yet. Create your first tag to get started.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {tags.map((tag, index) => {
+              const isSelected = selected.has(tag.id)
+              const pillBg = index % 2 === 0 ? 'bg-holio-lavender/30' : 'bg-holio-sage/30'
 
-            return (
-              <button
-                key={tag.id}
-                onClick={() => toggleTag(tag.id)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                  pillBg,
-                  isSelected && 'ring-1 ring-holio-orange/40',
-                )}
-              >
-                <span className="text-xl">{tag.emoji}</span>
-                <span className="flex-1 text-sm font-medium text-holio-text">
-                  {tag.name}
-                </span>
-                <div
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => toggleTag(tag.id)}
                   className={cn(
-                    'flex h-5 w-5 items-center justify-center rounded-full border transition-colors',
-                    isSelected
-                      ? 'border-holio-orange bg-holio-orange'
-                      : 'border-gray-300',
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                    pillBg,
+                    isSelected && 'ring-1 ring-holio-orange/40',
                   )}
                 >
-                  {isSelected && <Check className="h-3 w-3 text-white" />}
-                </div>
-              </button>
-            )
-          })}
-        </div>
+                  <span className="text-xl">{tag.emoji}</span>
+                  <span className="flex-1 text-sm font-medium text-holio-text">
+                    {tag.name}
+                  </span>
+                  <div
+                    className={cn(
+                      'flex h-5 w-5 items-center justify-center rounded-full border transition-colors',
+                      isSelected
+                        ? 'border-holio-orange bg-holio-orange'
+                        : 'border-gray-300',
+                    )}
+                  >
+                    {isSelected && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <button
           onClick={handleSave}

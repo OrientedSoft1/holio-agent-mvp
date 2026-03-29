@@ -3,18 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronDown } from 'lucide-react'
 import api from '../services/api.service'
 import { cn } from '../lib/utils'
-
-const countryCodes = [
-  { code: '+1', label: 'US/CA' },
-  { code: '+44', label: 'UK' },
-  { code: '+47', label: 'NO' },
-  { code: '+46', label: 'SE' },
-  { code: '+49', label: 'DE' },
-  { code: '+33', label: 'FR' },
-  { code: '+61', label: 'AU' },
-  { code: '+81', label: 'JP' },
-  { code: '+91', label: 'IN' },
-]
+import { COUNTRY_CODES } from '../lib/countryCodes'
 
 export default function NewContactPage() {
   const nav = useNavigate()
@@ -50,7 +39,7 @@ export default function NewContactPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+    <div className="flex min-h-full flex-col bg-holio-offwhite">
       <header className="flex h-14 flex-shrink-0 items-center justify-between bg-holio-offwhite px-4">
         <button
           type="button"
@@ -148,9 +137,9 @@ export default function NewContactPage() {
                 onBlur={() => setFocused(null)}
                 className="appearance-none bg-transparent py-2 pr-5 text-base text-holio-text outline-none"
               >
-                {countryCodes.map(({ code, label }) => (
+                {COUNTRY_CODES.map(({ code, country, flag }) => (
                   <option key={code} value={code}>
-                    {code} {label}
+                    {flag} {code} {country}
                   </option>
                 ))}
               </select>

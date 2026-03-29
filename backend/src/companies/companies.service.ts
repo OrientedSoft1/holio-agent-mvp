@@ -215,6 +215,20 @@ export class CompaniesService {
     });
   }
 
+  async cancelInvitation(
+    companyId: string,
+    invitationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.checkAdminAccess(companyId, userId);
+    const invitation = await this.invitationRepo.findOne({
+      where: { id: invitationId, companyId },
+    });
+    if (!invitation) throw new NotFoundException('Invitation not found');
+    invitation.status = InvitationStatus.CANCELLED;
+    await this.invitationRepo.save(invitation);
+  }
+
   // ──── Member management ────
 
   async updateMemberRole(

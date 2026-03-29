@@ -4,7 +4,6 @@ import {
   MoreVertical,
   BellOff,
   Pin,
-  Eye,
   MessageSquare,
   Paperclip,
   Mic,
@@ -18,61 +17,30 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useChatStore } from '../../stores/chatStore'
-import type { Chat } from '../../types'
-
-interface ChannelPost {
-  id: string
-  content: string
-  timestamp: string
-  viewCount: number
-  commentCount: number
-  edited?: boolean
-}
+import { useUiStore } from '../../stores/uiStore'
+import type { Chat, Message } from '../../types'
 
 interface ChannelViewProps {
   chat: Chat
 }
 
-const MOCK_POSTS: ChannelPost[] = [
-  {
-    id: '1',
-    content:
-      'We are excited to announce a new integration with our AI agent platform! Starting next week, all company channels will support automated summaries powered by Holio Agent bots. Stay tuned for more details.',
-    timestamp: '2:34 PM',
-    viewCount: 1127,
-    commentCount: 24,
-  },
-  {
-    id: '2',
-    content:
-      'Reminder: The Q1 company all-hands meeting is tomorrow at 10:00 AM. Please join via the Events channel. Agenda includes product roadmap updates and team highlights.',
-    timestamp: '11:15 AM',
-    viewCount: 843,
-    commentCount: 12,
-    edited: true,
-  },
-  {
-    id: '3',
-    content:
-      'New office policy update — hybrid work schedule will now default to 3 days in-office starting April 1st. Reach out to your team lead if you have questions.',
-    timestamp: '9:02 AM',
-    viewCount: 2301,
-    commentCount: 56,
-  },
-  {
-    id: '4',
-    content:
-      'Welcome to all new hires this month! Check the #onboarding channel for resources and feel free to introduce yourselves here.',
-    timestamp: 'Yesterday',
-    viewCount: 614,
-    commentCount: 8,
-  },
-]
-
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
+}
+
+function formatTimestamp(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 const URL_REGEX = /https?:\/\/[^\s]+/
@@ -100,20 +68,29 @@ function LinkPreviewCard({ url }: { url: string }) {
 export default function ChannelView({ chat }: ChannelViewProps) {
   const channelName = chat.name ?? 'Channel'
   const channelAvatar = chat.avatarUrl
-  const subscriberCount = (chat as any).members?.length ?? 0
+  const subscriberCount = chat.members?.length ?? 0
   const isAdmin = chat.myRole === 'admin' || chat.myRole === 'owner'
   const isMuted = chat.muted ?? false
-  const pinnedMessage = (chat as any).pinnedMessage ?? undefined
+  const pinnedMessage = chat.pinnedMessage ?? undefined
   const setActiveChat = useChatStore((s) => s.setActiveChat)
+  const sendMessage = useChatStore((s) => s.sendMessage)
+  const messages = useChatStore((s) => s.messages)
+  const messagesLoading = useChatStore((s) => s.messagesLoading)
+  const fetchMessages = useChatStore((s) => s.fetchMessages)
+  const toggleInfoPanel = useUiStore((s) => s.toggleInfoPanel)
 
   const [broadcastText, setBroadcastText] = useState('')
   const [pinnedExpanded, setPinnedExpanded] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    fetchMessages(chat.id)
+  }, [chat.id, fetchMessages])
+
+  useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [])
+  }, [messages])
 
   const initials = channelName
     .split(' ')
@@ -146,7 +123,7 @@ export default function ChannelView({ chat }: ChannelViewProps) {
             </div>
           )}
 
-          <button className="text-left">
+          <button className="text-left" onClick={toggleInfoPanel}>
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-holio-text">{channelName}</h3>
               {isMuted && <BellOff className="h-3.5 w-3.5 text-holio-muted" />}
@@ -157,7 +134,7 @@ export default function ChannelView({ chat }: ChannelViewProps) {
           </button>
         </div>
 
-        <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+        <button title="More options" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
           <MoreVertical className="h-5 w-5" />
         </button>
       </div>
@@ -191,7 +168,17 @@ export default function ChannelView({ chat }: ChannelViewProps) {
 
       {/* Posts feed */}
       <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-        {MOCK_POSTS.map((post) => {
+        {messagesLoading && messages.length === 0 && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        )}
+        {!messagesLoading && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-sm text-holio-muted">No posts yet</p>
+          </div>
+        )}
+        {messages.map((post: Message) => {
           const linkUrl = extractUrl(post.content)
           return (
             <div
@@ -204,12 +191,8 @@ export default function ChannelView({ chat }: ChannelViewProps) {
                 {linkUrl && <LinkPreviewCard url={linkUrl} />}
                 <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3 dark:border-gray-800">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 text-holio-muted">
-                      <Eye className="h-3.5 w-3.5" />
-                      <span className="text-xs">{formatCount(post.viewCount)}</span>
-                    </div>
-                    <span className="text-[11px] text-holio-muted">{post.timestamp}</span>
-                    {post.edited && (
+                    <span className="text-[11px] text-holio-muted">{formatTimestamp(post.createdAt)}</span>
+                    {post.isEdited && (
                       <span className="flex items-center gap-0.5 text-[11px] text-holio-muted">
                         <Pencil className="h-3 w-3" />
                         edited
@@ -218,14 +201,10 @@ export default function ChannelView({ chat }: ChannelViewProps) {
                   </div>
                   <button className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
                     <MessageSquare className="h-3.5 w-3.5" />
-                    <span className={cn('text-xs', post.commentCount === 0 && 'text-holio-orange')}>
-                      {post.commentCount > 0
-                        ? `${post.commentCount} comments`
-                        : 'Leave a comment'}
+                    <span className="text-xs text-holio-orange">
+                      Leave a comment
                     </span>
-                    {post.commentCount === 0 && (
-                      <ArrowRight className="h-3 w-3 text-holio-orange" />
-                    )}
+                    <ArrowRight className="h-3 w-3 text-holio-orange" />
                   </button>
                 </div>
               </div>
@@ -246,6 +225,12 @@ export default function ChannelView({ chat }: ChannelViewProps) {
               type="text"
               value={broadcastText}
               onChange={(e) => setBroadcastText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && broadcastText.trim()) {
+                  e.preventDefault()
+                  sendMessage(chat.id, broadcastText).then(() => setBroadcastText(''))
+                }
+              }}
               placeholder="Broadcast..."
               className="w-full bg-transparent py-2.5 text-sm text-holio-text placeholder:text-holio-muted outline-none"
             />
@@ -259,7 +244,14 @@ export default function ChannelView({ chat }: ChannelViewProps) {
           </button>
 
           {broadcastText.trim() ? (
-            <button className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90">
+            <button
+              onClick={async () => {
+                if (!broadcastText.trim()) return
+                await sendMessage(chat.id, broadcastText)
+                setBroadcastText('')
+              }}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90"
+            >
               <Send className="h-5 w-5" />
             </button>
           ) : (

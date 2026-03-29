@@ -7,12 +7,22 @@ import {
   MessageCircle,
   QrCode,
   Info,
+  FileText,
+  ImageOff,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuthStore } from '../stores/authStore'
 import { usePresenceStore } from '../stores/presenceStore'
 import api from '../services/api.service'
 import type { User } from '../types'
+
+interface SharedMediaItem {
+  id: string
+  url: string
+  type: 'image' | 'video' | 'file'
+  name?: string
+  createdAt: string
+}
 
 type MediaTab = 'posts' | 'media' | 'files' | 'voice' | 'links' | 'gifs'
 
@@ -29,13 +39,15 @@ export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
   const currentUser = useAuthStore((s) => s.user)
-  const isOnline = usePresenceStore((s) => userId ? s.onlineUsers.has(userId) : false)
+  const isOnline = usePresenceStore((s) => userId ? !!s.onlineUsers[userId] : false)
   const lastSeen = usePresenceStore((s) => userId ? s.lastSeen[userId] : undefined)
 
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<MediaTab>('media')
   const [notifications, setNotifications] = useState(true)
+  const [mediaItems, setMediaItems] = useState<SharedMediaItem[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
 
@@ -59,6 +71,16 @@ export default function UserProfilePage() {
     fetchUser()
   }, [userId, currentUser])
 
+  useEffect(() => {
+    if (!userId) return
+    setMediaLoading(true)
+    api
+      .get<SharedMediaItem[]>(`/users/${userId}/shared-media`, { params: { type: activeTab } })
+      .then(({ data }) => setMediaItems(data))
+      .catch(() => setMediaItems([]))
+      .finally(() => setMediaLoading(false))
+  }, [userId, activeTab])
+
   const handleScroll = () => {
     if (scrollRef.current) {
       setScrollTop(scrollRef.current.scrollTop)
@@ -73,7 +95,7 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-holio-offwhite">
+      <div className="flex h-full items-center justify-center bg-holio-offwhite">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
       </div>
     )
@@ -81,7 +103,7 @@ export default function UserProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-holio-offwhite">
+      <div className="flex h-full flex-col items-center justify-center bg-holio-offwhite">
         <p className="text-holio-muted">User not found</p>
         <button onClick={() => navigate(-1)} className="mt-4 text-holio-orange">
           Go back
@@ -93,7 +115,7 @@ export default function UserProfilePage() {
   const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() || '?'
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <header
         className={cn(
           'flex h-14 flex-shrink-0 items-center justify-between border-b bg-white px-4 transition-all duration-200',
@@ -241,17 +263,41 @@ export default function UserProfilePage() {
           <div className="h-px bg-gray-100" />
         </div>
 
-        <div className="grid grid-cols-3 gap-0.5 p-0.5">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const palette = ['bg-holio-lavender/20', 'bg-holio-sage/20', 'bg-holio-orange/10']
-            return (
-              <div
-                key={i}
-                className={cn('aspect-square rounded-sm', palette[i % palette.length])}
-              />
-            )
-          })}
-        </div>
+        {mediaLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        ) : mediaItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-holio-muted">
+            <ImageOff className="h-10 w-10" />
+            <p className="text-sm">
+              No {MEDIA_TABS.find((t) => t.key === activeTab)?.label.toLowerCase() ?? activeTab} shared yet
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-0.5 p-0.5">
+            {mediaItems.map((item) => (
+              <div key={item.id} className="aspect-square rounded-sm bg-gray-50">
+                {item.type === 'image' ? (
+                  <img
+                    src={item.url}
+                    alt={item.name}
+                    className="aspect-square w-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-1 p-2">
+                    <FileText className="h-8 w-8 text-holio-muted" />
+                    {item.name && (
+                      <span className="line-clamp-2 text-center text-xs text-holio-muted">
+                        {item.name}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

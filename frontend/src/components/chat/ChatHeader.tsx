@@ -1,4 +1,4 @@
-import { ChevronLeft, Search, Copy, MoreVertical } from 'lucide-react'
+import { ChevronLeft, Search, Phone, Video, MoreVertical } from 'lucide-react'
 import { useUiStore } from '../../stores/uiStore'
 
 interface ChatHeaderProps {
@@ -8,6 +8,7 @@ interface ChatHeaderProps {
   avatarColor: string
   status: string
   isOnline: boolean
+  isTyping?: boolean
   onBack?: () => void
   chatId?: string
   onPinClick?: () => void
@@ -20,6 +21,7 @@ export default function ChatHeader({
   avatarColor,
   status,
   isOnline,
+  isTyping,
   onBack,
 }: ChatHeaderProps) {
   const toggleInfoPanel = useUiStore((s) => s.toggleInfoPanel)
@@ -31,7 +33,7 @@ export default function ChatHeader({
         {onBack && (
           <button
             onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text dark:hover:bg-white/10 md:hidden"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -61,8 +63,12 @@ export default function ChatHeader({
             )}
           </div>
           <div>
-            <h3 className="text-[15px] font-semibold leading-tight text-holio-text">{name}</h3>
-            <p className="text-[13px] text-holio-muted">{status}</p>
+            <h3 className="text-[15px] font-semibold leading-tight text-holio-text dark:text-white">{name}</h3>
+            {isTyping ? (
+              <p className="text-[13px] font-medium text-green-500">typing...</p>
+            ) : (
+              <p className="text-[13px] text-holio-muted">{status}</p>
+            )}
           </div>
         </button>
       </div>
@@ -70,19 +76,26 @@ export default function ChatHeader({
       <div className="flex items-center gap-0.5">
         <button
           onClick={() => setShowInChatSearch(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text dark:hover:bg-white/10"
           title="Search in chat"
         >
           <Search className="h-[18px] w-[18px]" />
         </button>
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
-          title="Copy"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text dark:hover:bg-white/10"
+          title="Voice call"
         >
-          <Copy className="h-[18px] w-[18px]" />
+          <Phone className="h-[18px] w-[18px]" />
         </button>
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text dark:hover:bg-white/10"
+          title="Video call"
+        >
+          <Video className="h-[18px] w-[18px]" />
+        </button>
+        <button
+          onClick={toggleInfoPanel}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text dark:hover:bg-white/10"
           title="More"
         >
           <MoreVertical className="h-[18px] w-[18px]" />

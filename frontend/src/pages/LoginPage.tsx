@@ -2,23 +2,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Phone, ArrowRight, ChevronDown } from 'lucide-react'
 import api from '../services/api.service'
-
-const COUNTRY_CODES = [
-  { code: '+47', country: 'NO', flag: '🇳🇴' },
-  { code: '+1', country: 'US', flag: '🇺🇸' },
-  { code: '+44', country: 'UK', flag: '🇬🇧' },
-  { code: '+49', country: 'DE', flag: '🇩🇪' },
-  { code: '+33', country: 'FR', flag: '🇫🇷' },
-  { code: '+46', country: 'SE', flag: '🇸🇪' },
-  { code: '+45', country: 'DK', flag: '🇩🇰' },
-  { code: '+358', country: 'FI', flag: '🇫🇮' },
-  { code: '+34', country: 'ES', flag: '🇪🇸' },
-  { code: '+39', country: 'IT', flag: '🇮🇹' },
-  { code: '+31', country: 'NL', flag: '🇳🇱' },
-  { code: '+61', country: 'AU', flag: '🇦🇺' },
-  { code: '+81', country: 'JP', flag: '🇯🇵' },
-  { code: '+91', country: 'IN', flag: '🇮🇳' },
-]
+import { COUNTRY_CODES } from '../lib/countryCodes'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -58,7 +42,7 @@ export default function LoginPage() {
         state: { phone: phone.trim(), countryCode: selectedCountry.code },
       })
     } catch (err: unknown) {
-      const axiosErr = err as any
+      const axiosErr = err as { response?: { data?: { message?: string } } }
       const msg = axiosErr?.response?.data?.message
         ?? (err instanceof Error ? err.message : 'Failed to send code. Try again.')
       setError(msg)

@@ -49,9 +49,16 @@ export class OtpStoreService {
   }
 
   async lock(phoneKey: string): Promise<void> {
-    const lockedUntil = new Date(Date.now() + LOCK_TTL_SECONDS * 1000).toISOString();
+    const lockedUntil = new Date(
+      Date.now() + LOCK_TTL_SECONDS * 1000,
+    ).toISOString();
     const data: StoredCode = { code: '', attempts: MAX_ATTEMPTS, lockedUntil };
-    await this.redis.set(phoneKey, JSON.stringify(data), 'EX', LOCK_TTL_SECONDS);
+    await this.redis.set(
+      phoneKey,
+      JSON.stringify(data),
+      'EX',
+      LOCK_TTL_SECONDS,
+    );
   }
 
   async incrementAttempts(phoneKey: string): Promise<number> {

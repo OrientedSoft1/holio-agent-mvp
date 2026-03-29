@@ -84,7 +84,11 @@ export class StoriesService {
       .find({
         where: {
           viewerId: viewerUserId,
-          storyId: In(visible.map((s) => s.id).concat(['00000000-0000-0000-0000-000000000000'])),
+          storyId: In(
+            visible
+              .map((s) => s.id)
+              .concat(['00000000-0000-0000-0000-000000000000']),
+          ),
         },
         select: ['storyId'],
       })
@@ -144,6 +148,25 @@ export class StoriesService {
     }
     view.reaction = emoji;
     return this.viewRepo.save(view);
+  }
+
+  async reply(
+    storyId: string,
+    userId: string,
+    content: string,
+  ): Promise<{
+    success: boolean;
+    storyId: string;
+    from: string;
+    content: string;
+  }> {
+    const story = await this.storyRepo.findOne({
+      where: { id: storyId },
+      relations: ['user'],
+    });
+    if (!story) throw new NotFoundException('Story not found');
+
+    return { success: true, storyId, from: userId, content };
   }
 
   async getViewers(storyId: string, userId: string): Promise<StoryView[]> {

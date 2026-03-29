@@ -16,7 +16,7 @@ export class FoldersService {
       .createQueryBuilder('f')
       .select('COALESCE(MAX(f.order), -1)', 'max')
       .where('f.userId = :userId', { userId })
-      .getRawOne();
+      .getRawOne<{ max: number }>();
 
     const folder = this.folderRepo.create({
       userId,

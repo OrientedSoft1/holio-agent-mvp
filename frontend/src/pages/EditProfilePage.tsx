@@ -1,6 +1,6 @@
 import { useState, useRef, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User } from 'lucide-react'
+import { ChevronLeft, User } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api.service'
 
@@ -77,9 +77,17 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+    <div className="flex min-h-full flex-col bg-holio-offwhite">
       <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 shadow-sm">
-        <h1 className="text-lg font-semibold text-holio-text">Edit Profile</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100"
+          >
+            <ChevronLeft className="h-5 w-5 text-holio-text" />
+          </button>
+          <h1 className="text-lg font-semibold text-holio-text">Edit Profile</h1>
+        </div>
         <button
           onClick={() => handleSave()}
           disabled={saving || !firstName.trim()}

@@ -50,10 +50,7 @@ export class FoldersController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a chat folder' })
-  remove(
-    @CurrentUser() user: User,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  remove(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.foldersService.remove(user.id, id);
   }
 }

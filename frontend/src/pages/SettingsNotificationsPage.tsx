@@ -1,26 +1,21 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useSettingsStore } from '../stores/settingsStore'
 
 const SOUNDS = ['Default', 'Ding', 'Note', 'Chime', 'Bell', 'None']
 
 export default function SettingsNotificationsPage() {
   const navigate = useNavigate()
-  const [msgAlert, setMsgAlert] = useState(true)
-  const [msgPreview, setMsgPreview] = useState(true)
-  const [msgSound, setMsgSound] = useState('Default')
-  const [grpAlert, setGrpAlert] = useState(true)
-  const [grpPreview, setGrpPreview] = useState(true)
-  const [grpSound, setGrpSound] = useState('Default')
-  const [inAppSounds, setInAppSounds] = useState(true)
-  const [inAppVibrate, setInAppVibrate] = useState(true)
-  const [inAppPreview, setInAppPreview] = useState(true)
-  const [contactJoined, setContactJoined] = useState(true)
-  const [pinnedMessages, setPinnedMessages] = useState(true)
+  const notifs = useSettingsStore((s) => s.notifications)
+  const fetchNotificationSettings = useSettingsStore((s) => s.fetchNotificationSettings)
+  const updateNotificationSettings = useSettingsStore((s) => s.updateNotificationSettings)
+
+  useEffect(() => { fetchNotificationSettings() }, [fetchNotificationSettings])
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
@@ -31,36 +26,36 @@ export default function SettingsNotificationsPage() {
       <div className="flex-1 overflow-y-auto pb-8">
         <SectionLabel>Message Notifications</SectionLabel>
         <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
-          <SettingRow label="Alerts"><Toggle value={msgAlert} onChange={setMsgAlert} /></SettingRow>
+          <SettingRow label="Alerts"><Toggle value={notifs.msgAlert} onChange={(v) => updateNotificationSettings({ msgAlert: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Message Preview"><Toggle value={msgPreview} onChange={setMsgPreview} /></SettingRow>
+          <SettingRow label="Message Preview"><Toggle value={notifs.msgPreview} onChange={(v) => updateNotificationSettings({ msgPreview: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Sound"><SoundSelect value={msgSound} onChange={setMsgSound} /></SettingRow>
+          <SettingRow label="Sound"><SoundSelect value={notifs.msgSound} onChange={(v) => updateNotificationSettings({ msgSound: v })} /></SettingRow>
         </div>
 
         <SectionLabel>Group Notifications</SectionLabel>
         <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
-          <SettingRow label="Alerts"><Toggle value={grpAlert} onChange={setGrpAlert} /></SettingRow>
+          <SettingRow label="Alerts"><Toggle value={notifs.grpAlert} onChange={(v) => updateNotificationSettings({ grpAlert: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Message Preview"><Toggle value={grpPreview} onChange={setGrpPreview} /></SettingRow>
+          <SettingRow label="Message Preview"><Toggle value={notifs.grpPreview} onChange={(v) => updateNotificationSettings({ grpPreview: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Sound"><SoundSelect value={grpSound} onChange={setGrpSound} /></SettingRow>
+          <SettingRow label="Sound"><SoundSelect value={notifs.grpSound} onChange={(v) => updateNotificationSettings({ grpSound: v })} /></SettingRow>
         </div>
 
         <SectionLabel>In-App Notifications</SectionLabel>
         <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
-          <SettingRow label="Sounds"><Toggle value={inAppSounds} onChange={setInAppSounds} /></SettingRow>
+          <SettingRow label="Sounds"><Toggle value={notifs.inAppSounds} onChange={(v) => updateNotificationSettings({ inAppSounds: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Vibrate"><Toggle value={inAppVibrate} onChange={setInAppVibrate} /></SettingRow>
+          <SettingRow label="Vibrate"><Toggle value={notifs.inAppVibrate} onChange={(v) => updateNotificationSettings({ inAppVibrate: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Message Preview"><Toggle value={inAppPreview} onChange={setInAppPreview} /></SettingRow>
+          <SettingRow label="Message Preview"><Toggle value={notifs.inAppPreview} onChange={(v) => updateNotificationSettings({ inAppPreview: v })} /></SettingRow>
         </div>
 
         <SectionLabel>Other</SectionLabel>
         <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
-          <SettingRow label="Contact Joined Holio"><Toggle value={contactJoined} onChange={setContactJoined} /></SettingRow>
+          <SettingRow label="Contact Joined Holio"><Toggle value={notifs.contactJoined} onChange={(v) => updateNotificationSettings({ contactJoined: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Pinned Messages"><Toggle value={pinnedMessages} onChange={setPinnedMessages} /></SettingRow>
+          <SettingRow label="Pinned Messages"><Toggle value={notifs.pinnedMessages} onChange={(v) => updateNotificationSettings({ pinnedMessages: v })} /></SettingRow>
         </div>
       </div>
     </div>

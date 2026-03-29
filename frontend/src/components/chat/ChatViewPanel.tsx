@@ -5,7 +5,6 @@ import MessageBubble from './MessageBubble'
 import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
 import InChatSearch from '../search/InChatSearch'
-import TypingIndicator from './TypingIndicator'
 import PinnedMessagesPanel from './PinnedMessagesPanel'
 import GroupChatView from './GroupChatView'
 import ChannelView from './ChannelView'
@@ -20,6 +19,7 @@ import { getSocket } from '../../services/socket.service'
 import type { Chat } from '../../types'
 
 function groupMessagesByDate(messages: { createdAt: string }[]) {
+  if (!Array.isArray(messages)) return []
   const groups: { label: string; indices: number[] }[] = []
   let lastLabel = ''
   messages.forEach((msg, i) => {
@@ -50,9 +50,13 @@ export default function ChatViewPanel() {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const showInChatSearch = useUiStore((s) => s.showInChatSearch)
   const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
+  const onlineUsers = usePresenceStore((s) => s.onlineUsers)
+  const lastSeenMap = usePresenceStore((s) => s.lastSeen)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
   const [showPinned, setShowPinned] = useState(false)
+  const typingUsers = useChatStore((s) => s.typingUsers[activeChat?.id ?? ''])
+  const isTyping = (typingUsers?.length ?? 0) > 0
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight }, [messages])
   useEffect(() => {
     if (!activeChat || !messages.length || !currentUserId) return
@@ -74,10 +78,11 @@ export default function ChatViewPanel() {
   const { displayName, initials, color } = getChatDisplayInfo(activeChat)
   const isGroupLike = activeChat.type === 'group' || activeChat.type === 'channel'
   const dateGroups = groupMessagesByDate(messages)
-  const chatMembers = (activeChat as any).members as { userId: string }[] | undefined
+  const messagesById = new Map(messages.map((m) => [m.id, m]))
+  const chatMembers = activeChat.members
   const otherUserId = activeChat.type === 'private' && chatMembers ? chatMembers.find((m) => m.userId !== currentUserId)?.userId : undefined
-  const peerOnline = usePresenceStore((s) => otherUserId ? s.onlineUsers.has(otherUserId) : false)
-  const peerLastSeen = usePresenceStore((s) => otherUserId ? s.lastSeen[otherUserId] : undefined)
+  const peerOnline = otherUserId ? !!onlineUsers[otherUserId] : false
+  const peerLastSeen = otherUserId ? lastSeenMap[otherUserId] : undefined
   const isDM = activeChat.type === 'private'
   const isOnline = isDM ? peerOnline : false
   const statusText = isDM
@@ -89,7 +94,8 @@ export default function ChatViewPanel() {
   }
 
   if (activeChat.type === 'channel') {
-    const isAdmin = chatMembers?.some((m) => m.userId === currentUserId && (m as any).role === 'admin')
+    const isAdmin = activeChat.myRole === 'admin' || activeChat.myRole === 'owner' ||
+      chatMembers?.some((m) => m.userId === currentUserId && (m.role === 'admin' || m.role === 'owner'))
     if (isAdmin) {
       return <ChannelView chat={activeChat} />
     }
@@ -97,7 +103,7 @@ export default function ChatViewPanel() {
   }
 
   if (activeChat.type === 'secret') {
-    const accepted = (activeChat as any).secretAccepted
+    const accepted = activeChat.secretAccepted
     if (!accepted) {
       return <SecretChatInvitation chat={activeChat} />
     }
@@ -106,16 +112,15 @@ export default function ChatViewPanel() {
 
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite dark:bg-holio-dark">
-      <ChatHeader name={displayName} avatarUrl={activeChat.avatarUrl} initials={initials} avatarColor={color} status={statusText} isOnline={isOnline} chatId={activeChat.id} />
+      <ChatHeader name={displayName} avatarUrl={activeChat.avatarUrl} initials={initials} avatarColor={color} status={statusText} isOnline={isOnline} isTyping={isTyping} chatId={activeChat.id} onPinClick={() => setShowPinned(true)} />
       {showPinned && <PinnedMessagesPanel chatId={activeChat.id} onClose={() => setShowPinned(false)} />}
       {showInChatSearch && <InChatSearch chatId={activeChat.id} open={showInChatSearch} onClose={() => setShowInChatSearch(false)} />}
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto bg-holio-offwhite px-4 py-4 thin-scrollbar">
+      <div ref={scrollRef} className="flex flex-1 flex-col gap-1.5 overflow-y-auto bg-holio-offwhite px-4 py-4 thin-scrollbar dark:bg-holio-dark">
         {messagesLoading && (<div className="flex justify-center py-4"><div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" /></div>)}
         {dateGroups.map((group) => (<div key={group.label}><DateSeparator label={group.label} />
-          {group.indices.map((idx) => { const msg = messages[idx]; return (<MessageBubble key={msg.id} rawMessage={msg} message={{ id: msg.id, content: msg.content, timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMine: msg.senderId === currentUserId, senderName: msg.sender?.firstName, isRead: !!(msg as any).isRead || !!(msg as any).readAt, isEdited: !!(msg as any).isEdited, isGroup: isGroupLike, type: msg.type, fileUrl: msg.fileUrl, metadata: msg.metadata, reactions: msg.reactions, scheduledAt: msg.scheduledAt, currentUserId }} />) })}
+          {group.indices.map((idx) => { const msg = messages[idx]; const replyMsg = msg.replyToId ? messagesById.get(msg.replyToId) : undefined; return (<MessageBubble key={msg.id} rawMessage={msg} replyTo={replyMsg ? { senderName: replyMsg.sender?.firstName, content: replyMsg.content } : undefined} message={{ id: msg.id, content: msg.content, timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMine: msg.senderId === currentUserId, senderName: msg.sender?.firstName, isRead: !!msg.isRead || !!msg.readAt, isEdited: !!msg.isEdited, isGroup: isGroupLike, type: msg.type, fileUrl: msg.fileUrl, metadata: msg.metadata, reactions: msg.reactions, scheduledAt: msg.scheduledAt, currentUserId, isPinned: !!msg.isPinned }} />) })}
         </div>))}
       </div>
-      <TypingIndicator chatId={activeChat.id} />
       <MessageInput chatId={activeChat.id} />
     </div>
   )

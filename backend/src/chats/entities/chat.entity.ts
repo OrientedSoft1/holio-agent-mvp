@@ -45,6 +45,9 @@ export class Chat {
   @Column({ type: 'jsonb', default: {} })
   metadata: Record<string, unknown>;
 
+  @Column({ type: 'jsonb', default: [] })
+  topics: string[];
+
   @Column({ type: 'timestamptz', nullable: true })
   lastMessageAt: Date | null;
 

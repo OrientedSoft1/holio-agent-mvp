@@ -1,17 +1,11 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Plus, Users, Crown, Shield, Loader2, ArrowLeft, Check } from 'lucide-react'
+import { Building2, Plus, Users, Crown, Shield, Loader2, ArrowLeft, Check, Settings } from 'lucide-react'
 import { useCompanyStore } from '../stores/companyStore'
-import { useAuthStore } from '../stores/authStore'
 import Sidebar from '../components/layout/Sidebar'
 import BottomNavBar from '../components/layout/BottomNavBar'
 import type { Company } from '../types'
 import api from '../services/api.service'
-
-interface CompanyWithMeta extends Company {
-  memberCount?: number
-  role?: string
-}
 
 function RoleBadge({ role }: { role: string }) {
   const styles: Record<string, string> = {
@@ -81,42 +75,24 @@ export default function SelectCompanyPage() {
   const navigate = useNavigate()
   const { companies, loading, fetchCompanies, switchCompany, activeCompany } =
     useCompanyStore()
-  const [companiesWithMeta, setCompaniesWithMeta] = useState<
-    CompanyWithMeta[]
-  >([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchCompanies().then(async (fetched) => {
-      const enriched: CompanyWithMeta[] = await Promise.all(
-        fetched.map(async (c) => {
-          try {
-            const { data } = await api.get(`/companies/${c.id}/members`)
-            const members = Array.isArray(data) ? data : []
-            const currentUserId = useAuthStore.getState().user?.id
-            const myMembership = members.find(
-              (m: { userId: string }) => m.userId === currentUserId,
-            )
-            return {
-              ...c,
-              memberCount: members.length,
-              role: myMembership?.role || 'member',
-            }
-          } catch {
-            return { ...c, memberCount: 0, role: 'member' }
-          }
-        }),
-      )
-      setCompaniesWithMeta(enriched)
-    })
+    fetchCompanies()
   }, [fetchCompanies])
 
-  function handleSelectCompany(company: CompanyWithMeta) {
+  function handleSelectCompany(company: Company) {
     switchCompany(company)
     navigate('/chat')
+  }
+
+  function handleManageWorkspace(e: React.MouseEvent, company: Company) {
+    e.stopPropagation()
+    switchCompany(company)
+    navigate('/company-settings?tab=members')
   }
 
   async function handleCreate(e: FormEvent) {
@@ -130,8 +106,6 @@ export default function SelectCompanyPage() {
       const { data } = await api.post<Company>('/companies', {
         name: newName.trim(),
       })
-      const created = useCompanyStore.getState().createCompany
-      void created
       switchCompany(data)
       navigate('/chat')
     } catch (err: unknown) {
@@ -142,11 +116,6 @@ export default function SelectCompanyPage() {
       setCreating(false)
     }
   }
-
-  const displayCompanies =
-    companiesWithMeta.length > 0
-      ? companiesWithMeta
-      : companies.map((c) => ({ ...c, memberCount: 0, role: 'member' }))
 
   const content = (
     <div className="flex min-h-screen items-center justify-center bg-holio-offwhite px-4">
@@ -178,7 +147,7 @@ export default function SelectCompanyPage() {
             <SkeletonRow />
             <SkeletonRow />
           </div>
-        ) : displayCompanies.length === 0 ? (
+        ) : companies.length === 0 ? (
           <div className="mb-6 rounded-xl border border-dashed border-gray-300 p-8 text-center">
             <Building2 className="mx-auto mb-3 h-10 w-10 text-holio-muted" />
             <p className="text-sm text-holio-muted">
@@ -190,13 +159,14 @@ export default function SelectCompanyPage() {
           </div>
         ) : (
           <div className="mb-4 space-y-1">
-            {displayCompanies.map((company) => {
+            {companies.map((company) => {
               const isActive = activeCompany?.id === company.id
+              const canManage = company.myRole === 'owner' || company.myRole === 'admin'
               return (
                 <button
                   key={company.id}
                   onClick={() => handleSelectCompany(company)}
-                  className={`flex w-full items-center gap-4 rounded-xl p-4 text-left transition-colors ${
+                  className={`group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-colors ${
                     isActive
                       ? 'bg-holio-orange/5 ring-1 ring-holio-orange/30'
                       : 'hover:bg-holio-offwhite'
@@ -210,15 +180,27 @@ export default function SelectCompanyPage() {
                     <div className="flex items-center gap-1 text-xs text-holio-muted">
                       <Users className="h-3 w-3" />
                       <span>
-                        {company.memberCount}{' '}
+                        {company.memberCount ?? 0}{' '}
                         {company.memberCount === 1 ? 'member' : 'members'}
                       </span>
                     </div>
                   </div>
+                  {canManage && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => handleManageWorkspace(e, company)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleManageWorkspace(e as unknown as React.MouseEvent, company) }}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted opacity-0 transition-all hover:bg-gray-100 hover:text-holio-text group-hover:opacity-100"
+                      aria-label="Manage workspace"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </span>
+                  )}
                   {isActive && (
                     <Check className="h-5 w-5 shrink-0 text-holio-orange" />
                   )}
-                  {company.role && <RoleBadge role={company.role} />}
+                  {company.myRole && <RoleBadge role={company.myRole} />}
                 </button>
               )
             })}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X, Image, FileText, Mic, Link, MessageSquare } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useTagStore } from '../../stores/tagStore'
+import type { Message } from '../../types'
 
 type TabKey = 'all' | 'media' | 'files' | 'voice' | 'links'
 
@@ -12,43 +14,48 @@ const TABS: { key: TabKey; label: string; icon: typeof MessageSquare }[] = [
   { key: 'links', label: 'Links', icon: Link },
 ]
 
-interface TaggedMessage {
-  id: string
-  content: string
-  senderName: string
-  chatName: string
-  timestamp: string
-  type: 'text' | 'image' | 'file' | 'voice' | 'link'
-}
-
 interface TagDetailViewProps {
   tag: { id: string; emoji: string; name: string }
   onClose: () => void
 }
 
-const MOCK_MESSAGES: TaggedMessage[] = [
-  { id: 'm1', content: 'Check out the updated wireframes for the dashboard', senderName: 'Alice Chen', chatName: 'Product Team', timestamp: '2 hours ago', type: 'text' },
-  { id: 'm2', content: 'dashboard-v3-final.png', senderName: 'Bob Kim', chatName: 'Design Reviews', timestamp: '5 hours ago', type: 'image' },
-  { id: 'm3', content: 'Q4 requirements document', senderName: 'Carol Reyes', chatName: 'Engineering', timestamp: 'Yesterday', type: 'file' },
-  { id: 'm4', content: 'Voice note: Sprint retrospective summary', senderName: 'Dave Park', chatName: 'Standup', timestamp: '2 days ago', type: 'voice' },
-  { id: 'm5', content: 'https://figma.com/file/abc123 — latest prototype', senderName: 'Eve Liu', chatName: 'Product Team', timestamp: '3 days ago', type: 'link' },
-]
+const TYPE_MAP: Record<TabKey, string[]> = {
+  all: [],
+  media: ['image'],
+  files: ['file'],
+  voice: ['voice'],
+  links: ['text'],
+}
 
-function filterMessages(messages: TaggedMessage[], tab: TabKey): TaggedMessage[] {
+function filterMessages(messages: Message[], tab: TabKey): Message[] {
   if (tab === 'all') return messages
-  const typeMap: Record<TabKey, TaggedMessage['type'][]> = {
-    all: [],
-    media: ['image'],
-    files: ['file'],
-    voice: ['voice'],
-    links: ['link'],
+  if (tab === 'links') {
+    return messages.filter((m) => m.content && /https?:\/\//.test(m.content))
   }
-  return messages.filter((m) => typeMap[tab].includes(m.type))
+  return messages.filter((m) => TYPE_MAP[tab].includes(m.type))
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
 export default function TagDetailView({ tag, onClose }: TagDetailViewProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('all')
   const [visible, setVisible] = useState(false)
+  const tagMessages = useTagStore((s) => s.tagMessages)
+  const messagesLoading = useTagStore((s) => s.messagesLoading)
+  const fetchTagMessages = useTagStore((s) => s.fetchTagMessages)
+
+  useEffect(() => {
+    fetchTagMessages(tag.id)
+  }, [tag.id, fetchTagMessages])
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true))
@@ -67,15 +74,17 @@ export default function TagDetailView({ tag, onClose }: TagDetailViewProps) {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [handleClose])
 
-  const filtered = filterMessages(MOCK_MESSAGES, activeTab)
+  const filtered = filterMessages(tagMessages, activeTab)
 
-  const typeIcon = (type: TaggedMessage['type']) => {
-    switch (type) {
+  const typeIcon = (msg: Message) => {
+    switch (msg.type) {
       case 'image': return <Image className="h-4 w-4 text-holio-lavender" />
       case 'file': return <FileText className="h-4 w-4 text-holio-sage" />
       case 'voice': return <Mic className="h-4 w-4 text-holio-orange" />
-      case 'link': return <Link className="h-4 w-4 text-blue-500" />
-      default: return <MessageSquare className="h-4 w-4 text-holio-muted" />
+      default:
+        if (msg.content && /https?:\/\//.test(msg.content))
+          return <Link className="h-4 w-4 text-blue-500" />
+        return <MessageSquare className="h-4 w-4 text-holio-muted" />
     }
   }
 
@@ -125,7 +134,11 @@ export default function TagDetailView({ tag, onClose }: TagDetailViewProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {filtered.length === 0 ? (
+        {messagesLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-holio-lavender/20">
               <span className="text-2xl">{tag.emoji}</span>
@@ -146,20 +159,18 @@ export default function TagDetailView({ tag, onClose }: TagDetailViewProps) {
               >
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-holio-orange">
-                    {msg.senderName}
+                    {msg.sender?.firstName ?? 'Unknown'}
+                    {msg.sender?.lastName ? ` ${msg.sender.lastName}` : ''}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    {typeIcon(msg.type)}
+                    {typeIcon(msg)}
                     <span className="text-[11px] text-holio-muted">
-                      {msg.timestamp}
+                      {formatTimeAgo(msg.createdAt)}
                     </span>
                   </div>
                 </div>
                 <p className="line-clamp-2 text-sm leading-relaxed text-holio-text">
                   {msg.content}
-                </p>
-                <p className="mt-2 text-[11px] text-holio-muted">
-                  from <span className="font-medium">{msg.chatName}</span>
                 </p>
               </div>
             ))}

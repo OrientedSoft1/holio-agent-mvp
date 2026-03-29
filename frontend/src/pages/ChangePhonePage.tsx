@@ -4,24 +4,7 @@ import { ChevronLeft, AlertTriangle, Loader2 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { cn } from '../lib/utils'
 import api from '../services/api.service'
-
-const COUNTRY_CODES = [
-  { code: '+1', label: 'US / CA' },
-  { code: '+44', label: 'UK' },
-  { code: '+47', label: 'NO' },
-  { code: '+46', label: 'SE' },
-  { code: '+45', label: 'DK' },
-  { code: '+49', label: 'DE' },
-  { code: '+33', label: 'FR' },
-  { code: '+34', label: 'ES' },
-  { code: '+39', label: 'IT' },
-  { code: '+61', label: 'AU' },
-  { code: '+81', label: 'JP' },
-  { code: '+82', label: 'KR' },
-  { code: '+91', label: 'IN' },
-  { code: '+86', label: 'CN' },
-  { code: '+55', label: 'BR' },
-]
+import { COUNTRY_CODES } from '../lib/countryCodes'
 
 type Step = 'input' | 'verify'
 
@@ -80,7 +63,7 @@ export default function ChangePhonePage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <button
@@ -131,7 +114,7 @@ export default function ChangePhonePage() {
                 >
                   {COUNTRY_CODES.map((c) => (
                     <option key={c.code} value={c.code}>
-                      {c.code} {c.label}
+                      {c.flag} {c.code} {c.country}
                     </option>
                   ))}
                 </select>

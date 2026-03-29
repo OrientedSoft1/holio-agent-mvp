@@ -58,8 +58,14 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
       recorder.start()
       startTimers()
-    }).catch(() => {
-      if (!cancelled) onCancel()
+    }).catch((err) => {
+      if (!cancelled) {
+        const isDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
+        if (isDenied) {
+          window.alert('Microphone access denied. Please allow microphone permission in your browser settings.')
+        }
+        onCancel()
+      }
     })
 
     return () => {

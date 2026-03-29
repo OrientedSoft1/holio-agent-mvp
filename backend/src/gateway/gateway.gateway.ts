@@ -395,6 +395,40 @@ export class AppGateway
     });
   }
 
+  // ──── Chat updates ────
+
+  @SubscribeMessage('chat:mute')
+  async handleChatMute(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { chatId: string; duration?: string },
+  ) {
+    const userId = this.getSocketUserId(client);
+    await this.chatsService.checkMembership(data.chatId, userId);
+
+    this.server.to(client.id).emit('chat:update', {
+      id: data.chatId,
+      muted: true,
+    });
+
+    return { success: true };
+  }
+
+  @SubscribeMessage('chat:unmute')
+  async handleChatUnmute(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { chatId: string },
+  ) {
+    const userId = this.getSocketUserId(client);
+    await this.chatsService.checkMembership(data.chatId, userId);
+
+    this.server.to(client.id).emit('chat:update', {
+      id: data.chatId,
+      muted: false,
+    });
+
+    return { success: true };
+  }
+
   // ──── Room management ────
 
   @SubscribeMessage('chat:join')
@@ -410,6 +444,15 @@ export class AppGateway
     return { joined: data.chatId };
   }
 
+  @SubscribeMessage('chat:leave')
+  handleChatLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { chatId: string },
+  ) {
+    client.leave(`chat:${data.chatId}`);
+    return { left: data.chatId };
+  }
+
   // ──── Helpers ────
 
   private async joinUserRooms(userId: string, client: Socket) {
@@ -422,6 +465,13 @@ export class AppGateway
 
   getUserSocketId(userId: string): string | undefined {
     return this.userSockets.get(userId);
+  }
+
+  broadcastChatUpdate(chatId: string, updates: Record<string, unknown>) {
+    this.server.to(`chat:${chatId}`).emit('chat:update', {
+      id: chatId,
+      ...updates,
+    });
   }
 
   private async getMessageChatId(messageId: string): Promise<string | null> {

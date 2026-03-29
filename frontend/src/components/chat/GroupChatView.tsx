@@ -16,8 +16,6 @@ interface GroupChatViewProps {
   chat: Chat
 }
 
-const DEMO_TOPICS = ['General', 'Design', 'Development', 'Marketing', 'Random']
-
 const SENDER_COLORS = ['#6366f1', '#059669', '#dc2626', '#d97706', '#8b5cf6', '#0891b2', '#be185d']
 
 function getSenderColor(senderId: string): string {
@@ -63,10 +61,12 @@ export default function GroupChatView({ chat }: GroupChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
+  const clearChat = () => useChatStore.setState({ activeChat: null, messages: [] })
+
   const [activeTopic, setActiveTopic] = useState<string | null>(null)
 
-  const hasTopics = activeChat?.type === 'group' && (activeChat as any).topics?.length > 0
-  const topics: string[] = hasTopics ? (activeChat as any).topics : DEMO_TOPICS
+  const hasTopics = !!(activeChat?.topics && activeChat.topics.length > 0)
+  const topics: string[] = activeChat?.topics ?? []
 
   useEffect(() => {
     const el = scrollRef.current
@@ -95,11 +95,11 @@ export default function GroupChatView({ chat }: GroupChatViewProps) {
     .join('')
     .slice(0, 2)
     .toUpperCase()
-  const memberCount = (activeChat as any).members?.length ?? 0
-  const onlineCount = (activeChat as any).onlineCount ?? 0
+  const memberCount = activeChat.members?.length ?? 0
+  const onlineCount = activeChat.onlineCount ?? 0
 
   const filteredMessages = activeTopic
-    ? messages.filter((msg) => (msg.metadata as any)?.topic === activeTopic)
+    ? messages.filter((msg) => (msg.metadata as Record<string, unknown>)?.topic === activeTopic)
     : messages
 
   const dateGroups = groupMessagesByDate(filteredMessages)
@@ -113,7 +113,7 @@ export default function GroupChatView({ chat }: GroupChatViewProps) {
     <div className="flex flex-1 flex-col bg-holio-offwhite">
       <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+          <button onClick={clearChat} aria-label="Go back" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="relative">
@@ -138,14 +138,12 @@ export default function GroupChatView({ chat }: GroupChatViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {[Phone, MoreVertical].map((Icon, i) => (
-            <button
-              key={i}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <Icon className="h-5 w-5" />
-            </button>
-          ))}
+          <button title="Voice call" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+            <Phone className="h-5 w-5" />
+          </button>
+          <button title="More options" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+            <MoreVertical className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
@@ -231,7 +229,7 @@ export default function GroupChatView({ chat }: GroupChatViewProps) {
                         isMine,
                         senderName: !isMine && !sameSender ? msg.sender?.firstName : undefined,
                         senderColor,
-                        isRead: !!(msg as any).isRead || !!(msg as any).readAt,
+                        isRead: !!msg.isRead || !!msg.readAt,
                         isGroup: true,
                         type: msg.type,
                         fileUrl: msg.fileUrl,
@@ -239,6 +237,7 @@ export default function GroupChatView({ chat }: GroupChatViewProps) {
                         reactions: msg.reactions,
                         scheduledAt: msg.scheduledAt,
                         currentUserId,
+                        isPinned: !!msg.isPinned,
                       }}
                     />
                   </div>

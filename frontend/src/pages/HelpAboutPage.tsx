@@ -2,36 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronDown, ExternalLink, RefreshCw, HelpCircle, Shield, FileText, Mail, Heart } from 'lucide-react'
 import { cn } from '../lib/utils'
+import api from '../services/api.service'
+import { FAQ_ITEMS } from '../config/faq'
 
-const APP_VERSION = '1.0.0'
-
-const FAQ_ITEMS = [
-  {
-    question: 'How do I create a new company workspace?',
-    answer:
-      'Navigate to Settings and select "Switch Company" from the sidebar. From there, tap "Create New Company" and follow the setup wizard to name your workspace and invite team members.',
-  },
-  {
-    question: 'How do I add an AI bot to my workspace?',
-    answer:
-      'Go to the Bots section from the main navigation. Tap "Add Bot" to browse available AI agent templates powered by AWS Bedrock. Select a template, configure it for your needs, and deploy it to any channel.',
-  },
-  {
-    question: 'Can I use Holio Agent on multiple devices?',
-    answer:
-      'Yes! Go to Settings > Devices to link additional devices. Your messages and workspace data sync seamlessly across all linked devices in real time.',
-  },
-  {
-    question: 'How do I manage notification preferences?',
-    answer:
-      'Open Settings > Notifications to customize alerts for messages, group chats, and calls. You can set individual sounds, toggle message previews, and control in-app notification behavior.',
-  },
-  {
-    question: 'Is my data encrypted and secure?',
-    answer:
-      'Holio Agent uses end-to-end encryption for all messages and files. Your data is stored securely on AWS infrastructure with enterprise-grade security. You can also enable two-step verification in Settings > Privacy for extra protection.',
-  },
-]
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0'
 
 export default function HelpAboutPage() {
   const navigate = useNavigate()
@@ -43,17 +17,25 @@ export default function HelpAboutPage() {
     setOpenFaq(openFaq === index ? null : index)
   }
 
-  const checkForUpdates = () => {
+  const checkForUpdates = async () => {
     setChecking(true)
     setUpToDate(false)
-    setTimeout(() => {
-      setChecking(false)
+    try {
+      const { data } = await api.get<{ hasUpdate: boolean; latestVersion?: string }>('/app/check-update', { params: { currentVersion: APP_VERSION } })
+      if (data.hasUpdate && data.latestVersion) {
+        setUpToDate(false)
+      } else {
+        setUpToDate(true)
+      }
+    } catch {
       setUpToDate(true)
-    }, 1500)
+    } finally {
+      setChecking(false)
+    }
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           onClick={() => navigate('/settings')}

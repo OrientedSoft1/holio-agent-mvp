@@ -1,29 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, Plug, ChevronRight, Plus, X } from 'lucide-react'
+import { ArrowLeft, Search, Plug, ChevronRight, Plus, X, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useIntegrationStore } from '../stores/integrationStore'
+import { useCompanyStore } from '../stores/companyStore'
 
 type Category = 'All' | 'AI & Models' | 'Automation' | 'Developer'
-
-interface Integration {
-  id: string
-  name: string
-  description: string
-  category: Exclude<Category, 'All'>
-  icon: string
-  connected: boolean
-  configurable: boolean
-}
-
-const INTEGRATIONS: Integration[] = [
-  { id: 'bedrock', name: 'AWS Bedrock', description: 'Foundation models for AI agents', category: 'AI & Models', icon: '🧠', connected: true, configurable: true },
-  { id: 'webhooks', name: 'Webhooks', description: 'Send and receive HTTP events', category: 'Automation', icon: '🔗', connected: false, configurable: true },
-  { id: 'apikeys', name: 'API Keys', description: 'Manage API access tokens', category: 'Developer', icon: '🔑', connected: true, configurable: true },
-  { id: 'gdrive', name: 'Google Drive', description: 'File sync and backup', category: 'Automation', icon: '📁', connected: false, configurable: false },
-  { id: 'crossplat', name: 'Cross-Platform Alerts', description: 'Cross-platform notifications', category: 'Automation', icon: '🔔', connected: false, configurable: false },
-  { id: 'github', name: 'GitHub', description: 'Repository activity alerts', category: 'Developer', icon: '🐙', connected: true, configurable: true },
-  { id: 'openai', name: 'OpenAI', description: 'GPT models integration', category: 'AI & Models', icon: '🤖', connected: false, configurable: true },
-]
 
 const CATEGORIES: Category[] = ['All', 'AI & Models', 'Automation', 'Developer']
 
@@ -32,7 +14,18 @@ export default function IntegrationsPage() {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [integrations, setIntegrations] = useState(INTEGRATIONS)
+
+  const integrations = useIntegrationStore((s) => s.integrations)
+  const storeLoading = useIntegrationStore((s) => s.loading)
+  const fetchIntegrations = useIntegrationStore((s) => s.fetchIntegrations)
+  const toggleConnection = useIntegrationStore((s) => s.toggleConnection)
+  const activeCompany = useCompanyStore((s) => s.activeCompany)
+
+  useEffect(() => {
+    if (activeCompany?.id) {
+      fetchIntegrations(activeCompany.id)
+    }
+  }, [activeCompany?.id, fetchIntegrations])
 
   const filtered = useMemo(() => {
     let items = integrations
@@ -48,14 +41,8 @@ export default function IntegrationsPage() {
     return items
   }, [integrations, activeCategory, searchQuery])
 
-  const toggleConnection = (id: string) => {
-    setIntegrations((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, connected: !i.connected } : i)),
-    )
-  }
-
   return (
-    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+    <div className="flex min-h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="flex h-14 items-center gap-3 bg-white px-4 shadow-sm">
         <button
@@ -97,8 +84,15 @@ export default function IntegrationsPage() {
         )}
       </div>
 
+      {/* Loading spinner */}
+      {storeLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-holio-orange" />
+        </div>
+      )}
+
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className={cn('flex-1 overflow-y-auto pb-24', storeLoading && 'hidden')}>
         {/* Hero */}
         <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-holio-lavender to-holio-orange p-6">
           <div className="flex items-start gap-4">
@@ -174,7 +168,7 @@ export default function IntegrationsPage() {
 
                   {/* Toggle */}
                   <button
-                    onClick={() => toggleConnection(integration.id)}
+                    onClick={() => toggleConnection(activeCompany!.id, integration.id)}
                     className={cn(
                       'relative h-6 w-11 shrink-0 rounded-full transition-colors',
                       integration.connected ? 'bg-holio-orange' : 'bg-gray-300',

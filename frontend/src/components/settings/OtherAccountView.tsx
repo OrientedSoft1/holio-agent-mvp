@@ -32,9 +32,14 @@ export default function OtherAccountView() {
         <span className="rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-300">Active</span>
       </div>
 
-      <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-holio-orange hover:bg-holio-orange/5">
+      <button
+        disabled
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-holio-orange opacity-60 cursor-not-allowed"
+        title="Multi-account support coming soon"
+      >
         <Plus className="h-4 w-4" />
         Add Another Account
+        <span className="ml-auto text-[10px] font-medium text-holio-text/40">(Coming soon)</span>
       </button>
 
       <button

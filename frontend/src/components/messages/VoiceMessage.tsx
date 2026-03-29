@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils'
 interface VoiceMessageProps {
   fileUrl: string
   duration?: number
+  fileSize?: number
   isViewOnce?: boolean
   isMine: boolean
 }
@@ -15,13 +16,19 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
+
 const BAR_COUNT = 30
 
 function generateWaveform(): number[] {
   return Array.from({ length: BAR_COUNT }, () => 0.15 + Math.random() * 0.85)
 }
 
-export default function VoiceMessage({ fileUrl, duration, isViewOnce, isMine }: VoiceMessageProps) {
+export default function VoiceMessage({ fileUrl, duration, fileSize, isViewOnce, isMine }: VoiceMessageProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -109,6 +116,7 @@ export default function VoiceMessage({ fileUrl, duration, isViewOnce, isMine }: 
             isMine ? 'text-white/70' : 'text-holio-muted',
           )}>
             {playing ? formatTime(currentTime) : formatTime(audioDuration)}
+            {fileSize ? ` ${formatFileSize(fileSize)}` : ''}
           </span>
           <div className="flex items-center gap-2">
             {isViewOnce && (

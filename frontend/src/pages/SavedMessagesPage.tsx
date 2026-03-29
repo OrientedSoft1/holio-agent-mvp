@@ -7,6 +7,7 @@ interface SavedMessage {
   id: string
   content: string
   type: 'text' | 'image' | 'file'
+  chatId: string
   chatName: string
   fileUrl?: string
   createdAt: string
@@ -68,7 +69,7 @@ export default function SavedMessagesPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={() => navigate('/chat')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
@@ -112,7 +113,10 @@ export default function SavedMessagesPage() {
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-holio-orange/10">
                         <Icon className="h-5 w-5 text-holio-orange" />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <button
+                        onClick={() => navigate(`/chat?id=${msg.chatId}`)}
+                        className="min-w-0 flex-1 text-left"
+                      >
                         <p className="line-clamp-2 text-sm text-holio-text">
                           {msg.type === 'image' && !msg.content ? 'Photo' : msg.content}
                         </p>
@@ -121,7 +125,7 @@ export default function SavedMessagesPage() {
                           <span className="text-xs text-holio-muted">·</span>
                           <span className="text-xs text-holio-muted">{formatTimestamp(msg.createdAt)}</span>
                         </div>
-                      </div>
+                      </button>
                       <button
                         onClick={() => unsaveMessage(msg.id)}
                         disabled={removingId === msg.id}

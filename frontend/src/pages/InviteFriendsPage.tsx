@@ -7,7 +7,7 @@ export default function InviteFriendsPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const username = user?.username ?? 'user'
-  const inviteLink = `https://holio.app/invite/${username}`
+  const inviteLink = `${import.meta.env.VITE_APP_URL || window.location.origin}/invite/${username}`
 
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedUsername, setCopiedUsername] = useState(false)
@@ -38,7 +38,7 @@ export default function InviteFriendsPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={() => navigate('/contacts')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />

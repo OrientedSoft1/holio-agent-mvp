@@ -81,7 +81,7 @@ export default function ArchivedChatsPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           onClick={() => navigate('/chat')}
@@ -148,32 +148,37 @@ export default function ArchivedChatsPage() {
                 <div key={chat.id}>
                   {i > 0 && <div className="mx-4 border-t border-gray-100 dark:border-gray-800" />}
                   <div className="flex items-center gap-3 px-4 py-3">
-                    {chat.avatarUrl ? (
-                      <img
-                        src={chat.avatarUrl}
-                        alt={chat.name}
-                        className="h-10 w-10 flex-shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange/10 text-sm font-semibold text-holio-orange">
-                        {avatarInitials(chat.name)}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-sm font-semibold text-holio-text">
-                          {chat.name}
-                        </span>
-                        <span className="ml-2 flex-shrink-0 text-xs text-holio-muted">
-                          {formatTimestamp(chat.updatedAt)}
-                        </span>
-                      </div>
-                      {chat.lastMessage && (
-                        <p className="mt-0.5 truncate text-xs text-holio-muted">
-                          {chat.lastMessage}
-                        </p>
+                    <button
+                      onClick={() => navigate(`/chat?id=${chat.id}`)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      {chat.avatarUrl ? (
+                        <img
+                          src={chat.avatarUrl}
+                          alt={chat.name}
+                          className="h-10 w-10 flex-shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange/10 text-sm font-semibold text-holio-orange">
+                          {avatarInitials(chat.name)}
+                        </div>
                       )}
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate text-sm font-semibold text-holio-text">
+                            {chat.name}
+                          </span>
+                          <span className="ml-2 flex-shrink-0 text-xs text-holio-muted">
+                            {formatTimestamp(chat.updatedAt)}
+                          </span>
+                        </div>
+                        {chat.lastMessage && (
+                          <p className="mt-0.5 truncate text-xs text-holio-muted">
+                            {chat.lastMessage}
+                          </p>
+                        )}
+                      </div>
+                    </button>
                     <button
                       onClick={() => unarchiveChat(chat.id)}
                       disabled={unarchivingId === chat.id}

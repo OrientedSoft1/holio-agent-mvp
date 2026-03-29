@@ -11,10 +11,12 @@ import {
   Bot,
   X,
   Sparkles,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useBotStore } from '../stores/botStore'
 import { useCompanyStore } from '../stores/companyStore'
+import { CURATED_MODELS } from './playground-constants'
 import type { Bot as BotType, BotTemplate } from '../types'
 
 type Tab = 'templates' | 'your-bots'
@@ -25,6 +27,7 @@ const TYPE_ICON: Record<string, typeof Bot> = {
   hr: Users,
   support: Headphones,
   devops: Server,
+  accounting: BookOpen,
   custom: Bot,
 }
 
@@ -34,6 +37,7 @@ const TYPE_COLOR: Record<string, string> = {
   hr: 'bg-blue-500',
   support: 'bg-holio-orange',
   devops: 'bg-gray-500',
+  accounting: 'bg-sky-600',
   custom: 'bg-holio-dark',
 }
 
@@ -43,87 +47,9 @@ const TYPE_COLOR_RING: Record<string, string> = {
   hr: 'ring-blue-200',
   support: 'ring-orange-200',
   devops: 'ring-gray-200',
+  accounting: 'ring-sky-200',
   custom: 'ring-gray-300',
 }
-
-const MODELS = [
-  { id: 'anthropic.claude-3-sonnet', label: 'Claude Sonnet' },
-  { id: 'amazon.nova-pro', label: 'Nova Pro' },
-  { id: 'meta.llama3-70b', label: 'Llama 3' },
-  { id: 'mistral.mistral-large', label: 'Mistral' },
-]
-
-function modelLabel(modelId: string): string {
-  return MODELS.find((m) => m.id === modelId)?.label ?? modelId
-}
-
-const FALLBACK_TEMPLATES: BotTemplate[] = [
-  {
-    id: 'tpl-cfo',
-    name: 'CFO Agent',
-    description:
-      'Financial analysis, budgeting, forecasting, and financial reporting assistant for your company.',
-    category: 'cfo',
-    defaultSystemPrompt:
-      'You are a Chief Financial Officer AI assistant. Help with financial analysis, budgeting, forecasting, and reporting. Be precise with numbers and always cite your reasoning.',
-    defaultModelId: 'anthropic.claude-3-sonnet',
-    iconUrl: null,
-  },
-  {
-    id: 'tpl-marketing',
-    name: 'Marketing Agent',
-    description:
-      'Content creation, campaign strategy, social media, and brand voice management assistant.',
-    category: 'marketing',
-    defaultSystemPrompt:
-      'You are a Marketing AI assistant. Help with content creation, campaign strategy, social media management, and brand positioning. Be creative and data-driven.',
-    defaultModelId: 'anthropic.claude-3-sonnet',
-    iconUrl: null,
-  },
-  {
-    id: 'tpl-hr',
-    name: 'HR Agent',
-    description:
-      'Employee onboarding, policy guidance, leave management, and team culture support.',
-    category: 'hr',
-    defaultSystemPrompt:
-      'You are an HR AI assistant. Help with employee onboarding, policy questions, leave management, and team culture. Be empathetic and professional.',
-    defaultModelId: 'amazon.nova-pro',
-    iconUrl: null,
-  },
-  {
-    id: 'tpl-support',
-    name: 'Support Agent',
-    description:
-      'Customer-facing support bot that handles tickets, FAQs, and escalation workflows.',
-    category: 'support',
-    defaultSystemPrompt:
-      'You are a Customer Support AI assistant. Answer questions clearly, follow escalation protocols, and maintain a friendly, helpful tone.',
-    defaultModelId: 'anthropic.claude-3-sonnet',
-    iconUrl: null,
-  },
-  {
-    id: 'tpl-devops',
-    name: 'DevOps Agent',
-    description:
-      'Infrastructure monitoring, CI/CD pipeline management, and incident response assistant.',
-    category: 'devops',
-    defaultSystemPrompt:
-      'You are a DevOps AI assistant. Help with infrastructure monitoring, CI/CD pipelines, deployments, and incident response. Be technical and concise.',
-    defaultModelId: 'meta.llama3-70b',
-    iconUrl: null,
-  },
-  {
-    id: 'tpl-custom',
-    name: 'Custom Agent',
-    description:
-      'Start from scratch and define your own AI agent with a custom system prompt and configuration.',
-    category: 'custom',
-    defaultSystemPrompt: 'You are a helpful AI assistant.',
-    defaultModelId: 'anthropic.claude-3-sonnet',
-    iconUrl: null,
-  },
-]
 
 interface BotConfigForm {
   name: string
@@ -140,7 +66,7 @@ const DEFAULT_FORM: BotConfigForm = {
   description: '',
   type: 'custom',
   systemPrompt: '',
-  modelId: 'anthropic.claude-3-sonnet',
+  modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
   temperature: 0.7,
   maxTokens: 2048,
 }
@@ -163,6 +89,12 @@ export default function BotsPage() {
   const updateBot = useBotStore((s) => s.updateBot)
   const deleteBot = useBotStore((s) => s.deleteBot)
 
+  const models = CURATED_MODELS
+
+  function modelLabel(modelId: string): string {
+    return models.find((m) => m.id === modelId)?.label ?? modelId
+  }
+
   useEffect(() => {
     fetchTemplates()
     if (activeCompany?.id) {
@@ -170,8 +102,7 @@ export default function BotsPage() {
     }
   }, [activeCompany?.id, fetchTemplates, fetchCompanyBots])
 
-  const displayTemplates =
-    templates.length > 0 ? templates : FALLBACK_TEMPLATES
+  const displayTemplates = templates
 
   const openCreateFromTemplate = useCallback(
     (template: BotTemplate) => {
@@ -253,7 +184,7 @@ export default function BotsPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <header className="flex items-center gap-4 border-b border-gray-200 bg-white px-6 py-4">
         <button
@@ -531,7 +462,7 @@ export default function BotsPage() {
                   }
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-holio-text outline-none focus:border-holio-lavender focus:ring-2 focus:ring-holio-lavender/30"
                 >
-                  {MODELS.map((m) => (
+                  {models.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
                     </option>

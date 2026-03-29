@@ -9,133 +9,10 @@ import {
   Eye,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import { useStoryStore } from '../stores/storyStore'
 import { cn } from '../lib/utils'
-import type { Story, StoryGroup, User } from '../types'
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-const CURRENT_USER: User = {
-  id: 'me',
-  phone: '+1234567890',
-  username: 'me',
-  firstName: 'You',
-  lastName: null,
-  bio: null,
-  avatarUrl: null,
-  lastSeen: null,
-}
-
-function makeStory(
-  id: string,
-  userId: string,
-  caption: string | null,
-  viewed: boolean,
-  minutesAgo: number,
-): Story {
-  const now = Date.now()
-  return {
-    id,
-    userId,
-    companyId: null,
-    mediaUrl: '',
-    mediaType: 'image',
-    caption,
-    privacyLevel: 'everyone',
-    expiresAt: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-    createdAt: new Date(now - minutesAgo * 60 * 1000).toISOString(),
-    user: CURRENT_USER,
-    viewed,
-  }
-}
-
-const MOCK_STORIES: StoryGroup[] = [
-  {
-    user: {
-      id: 'u1',
-      phone: '+111',
-      username: 'anna',
-      firstName: 'Anna',
-      lastName: 'Berg',
-      bio: null,
-      avatarUrl: null,
-      lastSeen: null,
-    },
-    stories: [
-      {
-        ...makeStory('s1', 'u1', 'Morning coffee ☕', false, 120),
-        user: { id: 'u1', phone: '+111', username: 'anna', firstName: 'Anna', lastName: 'Berg', bio: null, avatarUrl: null, lastSeen: null },
-      },
-      {
-        ...makeStory('s2', 'u1', 'Office vibes today 🏢', false, 45),
-        user: { id: 'u1', phone: '+111', username: 'anna', firstName: 'Anna', lastName: 'Berg', bio: null, avatarUrl: null, lastSeen: null },
-      },
-    ],
-  },
-  {
-    user: {
-      id: 'u2',
-      phone: '+222',
-      username: 'erik',
-      firstName: 'Erik',
-      lastName: 'Solberg',
-      bio: null,
-      avatarUrl: null,
-      lastSeen: null,
-    },
-    stories: [
-      {
-        ...makeStory('s3', 'u2', 'New product launch! 🚀', false, 300),
-        user: { id: 'u2', phone: '+222', username: 'erik', firstName: 'Erik', lastName: 'Solberg', bio: null, avatarUrl: null, lastSeen: null },
-      },
-    ],
-  },
-  {
-    user: {
-      id: 'u3',
-      phone: '+333',
-      username: 'maria',
-      firstName: 'Maria',
-      lastName: 'Lindgren',
-      bio: null,
-      avatarUrl: null,
-      lastSeen: null,
-    },
-    stories: [
-      {
-        ...makeStory('s4', 'u3', 'Team dinner 🍕', true, 600),
-        user: { id: 'u3', phone: '+333', username: 'maria', firstName: 'Maria', lastName: 'Lindgren', bio: null, avatarUrl: null, lastSeen: null },
-      },
-      {
-        ...makeStory('s5', 'u3', 'Working late again 🌙', true, 400),
-        user: { id: 'u3', phone: '+333', username: 'maria', firstName: 'Maria', lastName: 'Lindgren', bio: null, avatarUrl: null, lastSeen: null },
-      },
-      {
-        ...makeStory('s6', 'u3', 'Finally home 🏡', true, 180),
-        user: { id: 'u3', phone: '+333', username: 'maria', firstName: 'Maria', lastName: 'Lindgren', bio: null, avatarUrl: null, lastSeen: null },
-      },
-    ],
-  },
-  {
-    user: {
-      id: 'u4',
-      phone: '+444',
-      username: 'olav',
-      firstName: 'Olav',
-      lastName: 'Hansen',
-      bio: null,
-      avatarUrl: null,
-      lastSeen: null,
-    },
-    stories: [
-      {
-        ...makeStory('s7', 'u4', 'Hiking in the mountains 🏔️', true, 900),
-        user: { id: 'u4', phone: '+444', username: 'olav', firstName: 'Olav', lastName: 'Hansen', bio: null, avatarUrl: null, lastSeen: null },
-      },
-    ],
-  },
-]
+import api from '../services/api.service'
+import type { StoryGroup, User } from '../types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -356,6 +233,7 @@ function StoryViewer({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close story viewer"
             className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10"
           >
             <X className="h-5 w-5 text-white" />
@@ -414,6 +292,32 @@ function CreateStorySheet({
   onClose: () => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const createStory = useStoryStore((s) => s.createStory)
+
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      setUploading(true)
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const { data } = await api.post<{ url: string }>('/uploads/story', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        const mediaType = file.type.startsWith('video') ? 'video' : 'image'
+        await createStory({ mediaUrl: data.url, mediaType })
+        onClose()
+      } catch {
+        onClose()
+      } finally {
+        setUploading(false)
+      }
+    },
+    [createStory, onClose],
+  )
 
   if (!open) return null
 
@@ -422,19 +326,26 @@ function CreateStorySheet({
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
+        onClick={uploading ? undefined : onClose}
       />
 
       {/* Sheet */}
       <div className="fixed right-0 bottom-0 left-0 z-50 animate-slide-up rounded-t-2xl bg-white px-4 pb-8 pt-5 shadow-xl">
+        {uploading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-t-2xl bg-white/80">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        )}
+
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
         <h3 className="mb-4 text-base font-semibold text-holio-text">
           Create Story
         </h3>
 
         <button
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50 active:bg-gray-100"
-          onClick={onClose}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
+          disabled={uploading}
+          onClick={() => cameraInputRef.current?.click()}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-orange/10">
             <Camera className="h-5 w-5 text-holio-orange" />
@@ -445,7 +356,8 @@ function CreateStorySheet({
         </button>
 
         <button
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50 active:bg-gray-100"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
+          disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-lavender/40">
@@ -457,16 +369,25 @@ function CreateStorySheet({
         </button>
 
         <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+        <input
           ref={fileInputRef}
           type="file"
           accept="image/*,video/*"
           className="hidden"
-          onChange={onClose}
+          onChange={handleFileUpload}
         />
 
         <button
           onClick={onClose}
-          className="mt-4 w-full rounded-xl py-2.5 text-sm font-medium text-holio-muted transition-colors hover:bg-gray-50"
+          disabled={uploading}
+          className="mt-4 w-full rounded-xl py-2.5 text-sm font-medium text-holio-muted transition-colors hover:bg-gray-50 disabled:opacity-50"
         >
           Cancel
         </button>
@@ -482,14 +403,28 @@ function CreateStorySheet({
 export default function StoryPage() {
   const navigate = useNavigate()
   const authUser = useAuthStore((s) => s.user)
+  const storyGroups = useStoryStore((s) => s.storyGroups)
+  const storiesLoading = useStoryStore((s) => s.loading)
+  const fetchStories = useStoryStore((s) => s.fetchStories)
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [myStoryGroup] = useState<StoryGroup | null>(null)
 
-  const recentGroups = MOCK_STORIES.filter(
+  useEffect(() => {
+    fetchStories()
+  }, [fetchStories])
+
+  const myStoryGroup = storyGroups.find(
+    (g) => authUser && g.user.id === authUser.id,
+  ) ?? null
+
+  const otherGroups = storyGroups.filter(
+    (g) => !authUser || g.user.id !== authUser.id,
+  )
+
+  const recentGroups = otherGroups.filter(
     (g) => !g.stories.every((s) => s.viewed),
   )
-  const viewedGroups = MOCK_STORIES.filter((g) =>
+  const viewedGroups = otherGroups.filter((g) =>
     g.stories.every((s) => s.viewed),
   )
 
@@ -500,10 +435,19 @@ export default function StoryPage() {
     if (idx >= 0) setViewerGroupIdx(idx)
   }
 
-  const currentUser: User = authUser ?? CURRENT_USER
+  const currentUser: User = authUser ?? {
+    id: '',
+    phone: '',
+    username: null,
+    firstName: 'You',
+    lastName: null,
+    bio: null,
+    avatarUrl: null,
+    lastSeen: null,
+  }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
         <button
@@ -517,6 +461,12 @@ export default function StoryPage() {
 
       {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto">
+        {storiesLoading && storyGroups.length === 0 && (
+          <div className="flex items-center justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        )}
+
         {/* My Story section */}
         <div className="px-4 pt-4 pb-2">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-holio-muted">

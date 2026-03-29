@@ -52,7 +52,7 @@ export default function PinnedMessagesPanel({ chatId, onClose }: PinnedMessagesP
   const handleUnpin = async (messageId: string) => {
     setUnpinningId(messageId)
     try {
-      await api.patch(`/messages/${messageId}`, { pinned: false })
+      await api.post(`/messages/${messageId}/pin`)
       setMessages((prev) => prev.filter((m) => m.id !== messageId))
     } catch {
       /* keep message in list on failure */

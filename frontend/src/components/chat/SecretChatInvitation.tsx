@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Phone, MoreVertical, ShieldCheck, Lock } from 'lucide-react'
-import { cn } from '../../lib/utils'
+import api from '../../services/api.service'
+import { useChatStore } from '../../stores/chatStore'
 import type { Chat } from '../../types'
 
 interface SecretChatInvitationProps {
@@ -9,6 +11,9 @@ interface SecretChatInvitationProps {
 export default function SecretChatInvitation({
   chat,
 }: SecretChatInvitationProps) {
+  const [accepting, setAccepting] = useState(false)
+  const fetchMessages = useChatStore((s) => s.fetchMessages)
+
   const inviterName = chat.name ?? 'Unknown'
   const inviterAvatar = chat.avatarUrl
   const inviterStatus = 'last seen recently'
@@ -49,10 +54,10 @@ export default function SecretChatInvitation({
         </div>
 
         <div className="flex items-center gap-1">
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text">
+          <button title="Voice call" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text">
             <Phone className="h-5 w-5" />
           </button>
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text">
+          <button title="More options" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text">
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>
@@ -94,9 +99,21 @@ export default function SecretChatInvitation({
 
       <div className="flex-shrink-0 px-4 pb-6 pt-2">
         <button
+          onClick={async () => {
+            setAccepting(true)
+            try {
+              await api.post(`/chats/${chat.id}/accept`)
+              fetchMessages(chat.id)
+            } catch {
+              // ignore
+            } finally {
+              setAccepting(false)
+            }
+          }}
+          disabled={accepting}
           className="w-full rounded-xl bg-holio-orange py-3 text-base font-medium text-white transition-colors hover:bg-holio-orange/90 active:bg-holio-orange/80"
         >
-          Accept
+          {accepting ? 'Accepting...' : 'Accept'}
         </button>
       </div>
     </div>

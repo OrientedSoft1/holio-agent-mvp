@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   X,
   Bell,
   BellOff,
   Image,
-  File,
-  Play,
   Link,
   ChevronRight,
   UserPlus,
@@ -34,10 +33,12 @@ import {
 import { useUiStore } from '../../stores/uiStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBotStore } from '../../stores/botStore'
+import { useAuthStore } from '../../stores/authStore'
+import { useContactsStore } from '../../stores/contactsStore'
 import { cn } from '../../lib/utils'
 import ChannelAdminPanel from '../groups/ChannelAdminPanel'
 import api from '../../services/api.service'
-import type { Bot as BotType } from '../../types'
+import type { Bot as BotType, User } from '../../types'
 
 type MediaTab = 'photos' | 'videos' | 'files' | 'music' | 'voice' | 'links' | 'gifs'
 
@@ -50,17 +51,6 @@ const MEDIA_TABS: { id: MediaTab; label: string; icon: typeof Image; apiType: st
   { id: 'links', label: 'Links', icon: Link, apiType: 'link' },
   { id: 'gifs', label: 'GIFs', icon: Image, apiType: 'gif' },
 ]
-
-interface MediaItem {
-  id: string
-  url?: string
-  name?: string
-  size?: number
-  date?: string
-  title?: string
-  duration?: number
-  thumbnailUrl?: string
-}
 
 const ACTIONS = [
   { label: 'Share this contact', icon: Share2, variant: 'default' as const },
@@ -107,32 +97,20 @@ export default function InfoPanel() {
   const companyBots = useBotStore((s) => s.companyBots)
   const inviteBotToChat = useBotStore((s) => s.inviteBotToChat)
   const removeBotFromChat = useBotStore((s) => s.removeBotFromChat)
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const navigate = useNavigate()
+  const blockUser = useContactsStore((s) => s.blockUser)
+  const removeContact = useContactsStore((s) => s.removeContact)
   const [showBotPicker, setShowBotPicker] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [isMuted, setIsMuted] = useState(activeChat?.muted ?? false)
   const [showMutePicker, setShowMutePicker] = useState(false)
   const [activeMediaTab, setActiveMediaTab] = useState<MediaTab>('photos')
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [mediaLoading, setMediaLoading] = useState(false)
   const [mediaCounts, setMediaCounts] = useState<Record<string, number>>({})
-
-  const fetchMedia = useCallback(async (tab: MediaTab) => {
-    if (!activeChat) return
-    setMediaLoading(true)
-    try {
-      const apiType = MEDIA_TABS.find((t) => t.id === tab)?.apiType ?? tab
-      const { data } = await api.get(`/chats/${activeChat.id}/search`, { params: { type: apiType } })
-      setMediaItems(Array.isArray(data) ? data : data.items ?? [])
-    } catch {
-      setMediaItems([])
-    } finally {
-      setMediaLoading(false)
-    }
-  }, [activeChat])
-
-  useEffect(() => {
-    fetchMedia(activeMediaTab)
-  }, [activeMediaTab, fetchMedia])
+  const [otherUser, setOtherUser] = useState<User | null>(null)
+  const [commonGroupsCount, setCommonGroupsCount] = useState(0)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false)
 
   useEffect(() => {
     if (!activeChat) return
@@ -140,6 +118,23 @@ export default function InfoPanel() {
       .then(({ data }) => setMediaCounts(data))
       .catch(() => {})
   }, [activeChat])
+
+  useEffect(() => {
+    if (!activeChat || activeChat.type !== 'private') return
+    api.get(`/chats/${activeChat.id}/members`).then(({ data }) => {
+      const other = data.find((m: { userId: string; user: User }) => m.userId !== currentUserId)
+      if (other) setOtherUser(other.user)
+    }).catch(() => {})
+  }, [activeChat, currentUserId])
+
+  useEffect(() => {
+    if (!activeChat || activeChat.type === 'group' || activeChat.type === 'channel') return
+    const peerId = otherUser?.id
+    if (!peerId) return
+    api.get(`/users/${peerId}/common-groups`).then(({ data }) => {
+      setCommonGroupsCount(Array.isArray(data) ? data.length : data.count ?? 0)
+    }).catch(() => {})
+  }, [activeChat, otherUser])
 
   if (!activeChat) return null
 
@@ -158,7 +153,7 @@ export default function InfoPanel() {
     bot: '#FF9220',
   }
   const avatarColor = colorMap[activeChat.type] ?? '#6366f1'
-  const chatMembers = (activeChat as any).members as { userId: string }[] | undefined
+  const chatMembers = activeChat.members as { userId: string }[] | undefined
 
   if (showAdminPanel && isAdmin && isGroupLike) {
     return (
@@ -186,131 +181,24 @@ export default function InfoPanel() {
     }
   }
 
-  const renderMediaContent = () => {
-    if (mediaLoading) {
-      return (
-        <div className="flex justify-center py-6">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
-        </div>
-      )
+  const handleAction = (label: string) => {
+    const peerId = otherUser?.id
+    switch (label) {
+      case 'Share this contact':
+        if (peerId) navigator.clipboard.writeText(`${import.meta.env.VITE_APP_URL || window.location.origin}/u/${otherUser?.username ?? peerId}`)
+        break
+      case 'Edit contact':
+        if (peerId) navigate(`/contacts/${peerId}/edit`)
+        break
+      case 'Delete contact':
+        setShowDeleteConfirm(true)
+        break
+      case 'Add to group':
+        break
+      case 'Block user':
+        setShowBlockConfirm(true)
+        break
     }
-
-    if (mediaItems.length === 0) {
-      return (
-        <p className="py-6 text-center text-xs text-holio-muted">
-          No {activeMediaTab} shared yet
-        </p>
-      )
-    }
-
-    if (activeMediaTab === 'photos' || activeMediaTab === 'gifs') {
-      return (
-        <div className="grid grid-cols-3 gap-1">
-          {mediaItems.map((item) => (
-            <button
-              key={item.id}
-              className="aspect-square overflow-hidden rounded-md bg-gray-100 dark:bg-gray-700"
-            >
-              <img
-                src={item.thumbnailUrl ?? item.url}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            </button>
-          ))}
-        </div>
-      )
-    }
-
-    if (activeMediaTab === 'videos') {
-      return (
-        <div className="grid grid-cols-3 gap-1">
-          {mediaItems.map((item) => (
-            <button
-              key={item.id}
-              className="group relative aspect-square overflow-hidden rounded-md bg-gray-100 dark:bg-gray-700"
-            >
-              {item.thumbnailUrl ? (
-                <img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <Play className="h-6 w-6 text-holio-muted" />
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
-                <Play className="h-8 w-8 text-white" />
-              </div>
-            </button>
-          ))}
-        </div>
-      )
-    }
-
-    if (activeMediaTab === 'files') {
-      return (
-        <div className="space-y-1">
-          {mediaItems.map((item) => (
-            <a
-              key={item.id}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <File className="h-5 w-5 flex-shrink-0 text-holio-orange" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-holio-text">{item.name ?? 'File'}</p>
-                <p className="text-[10px] text-holio-muted">
-                  {item.size ? formatFileSize(item.size) : ''}
-                  {item.date ? ` · ${new Date(item.date).toLocaleDateString()}` : ''}
-                </p>
-              </div>
-            </a>
-          ))}
-        </div>
-      )
-    }
-
-    if (activeMediaTab === 'links') {
-      return (
-        <div className="space-y-1">
-          {mediaItems.map((item) => (
-            <a
-              key={item.id}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block rounded-lg px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <p className="truncate text-xs font-medium text-holio-orange">{item.title ?? item.url}</p>
-              <p className="truncate text-[10px] text-holio-muted">{item.url}</p>
-            </a>
-          ))}
-        </div>
-      )
-    }
-
-    // voice & music
-    return (
-      <div className="space-y-1">
-        {mediaItems.map((item) => (
-          <button
-            key={item.id}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            <Play className="h-5 w-5 flex-shrink-0 text-holio-orange" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-holio-text">{item.name ?? 'Audio'}</p>
-              {item.duration != null && (
-                <p className="text-[10px] text-holio-muted">
-                  {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, '0')}
-                </p>
-              )}
-            </div>
-          </button>
-        ))}
-      </div>
-    )
   }
 
   return (
@@ -387,27 +275,27 @@ export default function InfoPanel() {
         {!isGroupLike && (
           <>
             <div className="space-y-0">
-              <button className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+              <div className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
                 <Phone className="h-5 w-5 flex-shrink-0 text-holio-muted" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-holio-text">+1(325)255-5534</p>
+                  <p className="text-sm text-holio-text">{otherUser?.phone ?? 'No phone'}</p>
                   <p className="text-[12px] text-holio-muted">Mobile</p>
                 </div>
-              </button>
-              <button className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+              </div>
+              <div className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
                 <FileText className="h-5 w-5 flex-shrink-0 text-holio-muted" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-holio-text">{(activeChat as any).bio ?? 'No bio set'}</p>
+                  <p className="text-sm text-holio-text">{otherUser?.bio ?? 'No bio set'}</p>
                   <p className="text-[12px] text-holio-muted">Bio</p>
                 </div>
-              </button>
-              <button className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+              </div>
+              <div className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
                 <AtSign className="h-5 w-5 flex-shrink-0 text-holio-muted" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-holio-text">@{(activeChat as any).username ?? displayName.replace(/\s+/g, '')}</p>
+                  <p className="text-sm text-holio-text">@{otherUser?.username ?? displayName.replace(/\s+/g, '')}</p>
                   <p className="text-[12px] text-holio-muted">Username</p>
                 </div>
-              </button>
+              </div>
             </div>
             <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
           </>
@@ -435,7 +323,7 @@ export default function InfoPanel() {
                 {displayName}
               </h4>
               <p className="text-xs text-holio-muted">
-                {(activeChat as any).memberCount ?? chatMembers?.length ?? 0} members
+                {chatMembers?.length ?? 0} members
               </p>
             </div>
             <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
@@ -479,11 +367,11 @@ export default function InfoPanel() {
                 </button>
               )
             })}
-            <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+            <div className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
               <Users className="h-5 w-5 flex-shrink-0 text-holio-muted" />
               <span className="flex-1 text-sm text-holio-text">Group in common</span>
-              <span className="text-xs text-holio-muted">2</span>
-            </button>
+              <span className="text-xs text-holio-muted">{commonGroupsCount}</span>
+            </div>
           </div>
         </div>
 
@@ -574,6 +462,7 @@ export default function InfoPanel() {
                         </p>
                       </div>
                       <button
+                        onClick={() => navigate(`/bots/${bot.id}/analytics`)}
                         className="rounded-full p-1 text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
                         title="Configure"
                       >
@@ -606,6 +495,7 @@ export default function InfoPanel() {
             return (
               <button
                 key={action.label}
+                onClick={() => handleAction(action.label)}
                 className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <Icon
@@ -621,6 +511,72 @@ export default function InfoPanel() {
           })}
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-[#1E3035]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-holio-text">Delete contact</h3>
+            <p className="mt-2 text-sm text-holio-muted">
+              Are you sure you want to delete this contact? This action cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-holio-text transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const peerId = otherUser?.id
+                  if (peerId) {
+                    try {
+                      await removeContact(peerId)
+                    } catch { /* handled */ }
+                  }
+                  setShowDeleteConfirm(false)
+                }}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBlockConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowBlockConfirm(false)}>
+          <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-[#1E3035]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-holio-text">Block user</h3>
+            <p className="mt-2 text-sm text-holio-muted">
+              Are you sure you want to block this user? They will no longer be able to message you.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowBlockConfirm(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-holio-text transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const peerId = otherUser?.id
+                  if (peerId) {
+                    try {
+                      await blockUser(peerId)
+                    } catch { /* handled */ }
+                  }
+                  setShowBlockConfirm(false)
+                }}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
+              >
+                Block
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

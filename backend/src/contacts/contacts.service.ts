@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Contact } from './entities/contact.entity.js';
 import { AddContactDto, UpdateContactDto } from './dto/contact.dto.js';
 

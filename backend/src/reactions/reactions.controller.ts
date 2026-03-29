@@ -84,4 +84,25 @@ export class ReactionsController {
   closePoll(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
     return this.reactionsService.closePoll(id, user.id);
   }
+
+  @Post('messages/:id/poll-vote')
+  @ApiOperation({ summary: 'Vote on a poll by message ID' })
+  async voteByMessage(
+    @Param('id', ParseUUIDPipe) messageId: string,
+    @CurrentUser() user: User,
+    @Body() dto: VotePollDto,
+  ) {
+    const poll = await this.reactionsService.findPollByMessageId(messageId);
+    return this.reactionsService.vote(poll.id, user.id, dto.optionIndex);
+  }
+
+  @Post('messages/:id/poll-close')
+  @ApiOperation({ summary: 'Close a poll by message ID (creator only)' })
+  async closeByMessage(
+    @Param('id', ParseUUIDPipe) messageId: string,
+    @CurrentUser() user: User,
+  ) {
+    const poll = await this.reactionsService.findPollByMessageId(messageId);
+    return this.reactionsService.closePoll(poll.id, user.id);
+  }
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronDown, ChevronRight, Activity, CheckCircle2, XCircle, Zap, Clock, Hash } from 'lucide-react'
 import { cn } from '../lib/utils'
 import api from '../services/api.service'
+import { useCompanyStore } from '../stores/companyStore'
 import type { Bot, BotTask } from '../types'
 
 interface BotStats {
@@ -65,11 +66,11 @@ function formatDate(iso: string): string {
   })
 }
 
-const TOKEN_BUDGET = 100_000
-
 export default function BotAnalyticsPage() {
   const navigate = useNavigate()
   const { botId } = useParams<{ botId: string }>()
+  const activeCompany = useCompanyStore((s) => s.activeCompany)
+  const TOKEN_BUDGET = activeCompany?.bedrockConfig?.maxTokensBudget ?? 100_000
 
   const [bot, setBot] = useState<Bot | null>(null)
   const [tasks, setTasks] = useState<BotTask[]>([])
@@ -109,7 +110,7 @@ export default function BotAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen flex-col bg-holio-offwhite">
+      <div className="flex h-full flex-col bg-holio-offwhite">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate('/bots')}
@@ -128,7 +129,7 @@ export default function BotAnalyticsPage() {
 
   if (error || !bot) {
     return (
-      <div className="flex h-screen flex-col bg-holio-offwhite">
+      <div className="flex h-full flex-col bg-holio-offwhite">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate('/bots')}
@@ -153,7 +154,7 @@ export default function BotAnalyticsPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
         <button
           onClick={() => navigate('/bots')}

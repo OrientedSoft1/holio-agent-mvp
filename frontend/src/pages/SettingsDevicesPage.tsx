@@ -1,38 +1,53 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Smartphone, Monitor, Tablet, QrCode, X, Globe, Trash2 } from 'lucide-react'
+import { ChevronLeft, Smartphone, Monitor, Tablet, QrCode, X, Globe, Trash2, Loader2 } from 'lucide-react'
+import { useDeviceStore } from '../stores/deviceStore'
+import type { DeviceSession } from '../stores/deviceStore'
 
-interface Session {
-  id: string
-  name: string
-  icon: typeof Smartphone
-  app: string
-  location: string
-  lastActive: string
+const deviceIcon = (type: DeviceSession['deviceType']) => {
+  if (type === 'desktop') return Monitor
+  if (type === 'tablet') return Tablet
+  return Smartphone
 }
-
-const MOCK_SESSIONS: Session[] = [
-  { id: '1', name: 'Windows PC', icon: Monitor, app: 'Holio Desktop 2.1.0', location: 'Oslo, Norway', lastActive: 'Active now' },
-  { id: '2', name: 'iPad Pro', icon: Tablet, app: 'Holio for iPad 1.4.2', location: 'Oslo, Norway', lastActive: '2 hours ago' },
-  { id: '3', name: 'MacBook Air', icon: Monitor, app: 'Holio Desktop 2.0.8', location: 'Bergen, Norway', lastActive: 'Yesterday, 5:30 PM' },
-]
 
 export default function SettingsDevicesPage() {
   const navigate = useNavigate()
-  const [sessions, setSessions] = useState(MOCK_SESSIONS)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const terminateSession = (id: string) => {
-    setSessions((s) => s.filter((ses) => ses.id !== id))
-  }
+  const currentDevice = useDeviceStore((s) => s.currentDevice)
+  const otherSessions = useDeviceStore((s) => s.otherSessions)
+  const loading = useDeviceStore((s) => s.loading)
+  const fetchSessions = useDeviceStore((s) => s.fetchSessions)
+  const terminateSession = useDeviceStore((s) => s.terminateSession)
+  const terminateAllOther = useDeviceStore((s) => s.terminateAllOther)
 
-  const terminateAll = () => {
-    setSessions([])
+  useEffect(() => {
+    fetchSessions()
+  }, [fetchSessions])
+
+  const handleTerminateAll = () => {
+    terminateAllOther()
     setShowConfirm(false)
   }
 
+  if (loading) {
+    return (
+      <div className="flex h-full flex-col bg-holio-offwhite">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+            <ChevronLeft className="h-5 w-5 text-holio-text" />
+          </button>
+          <h1 className="text-lg font-semibold text-holio-text">Devices</h1>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-holio-orange" />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
@@ -45,14 +60,20 @@ export default function SettingsDevicesPage() {
         <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900 p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-holio-orange/10">
-              <Smartphone className="h-5 w-5 text-holio-orange" />
+              {currentDevice?.deviceType === 'desktop' ? (
+                <Monitor className="h-5 w-5 text-holio-orange" />
+              ) : currentDevice?.deviceType === 'tablet' ? (
+                <Tablet className="h-5 w-5 text-holio-orange" />
+              ) : (
+                <Smartphone className="h-5 w-5 text-holio-orange" />
+              )}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-holio-text">iPhone 15 Pro</p>
+                <p className="text-sm font-semibold text-holio-text">{currentDevice?.name ?? 'Unknown Device'}</p>
                 <span className="rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:text-green-300">Online</span>
               </div>
-              <p className="text-xs text-holio-muted">Holio for iOS 2.3.0</p>
+              <p className="text-xs text-holio-muted">{currentDevice?.app ?? 'Holio'}</p>
             </div>
           </div>
         </div>
@@ -63,17 +84,17 @@ export default function SettingsDevicesPage() {
             <QrCode className="h-16 w-16 text-holio-muted/40" />
           </div>
           <p className="mb-4 text-center text-xs text-holio-muted">Scan the QR code from another device to link it to your account</p>
-          <button className="w-full rounded-xl bg-holio-orange py-3 text-sm font-semibold text-white hover:bg-orange-500">
+          <button title="Coming soon" aria-label="Link desktop device" className="w-full rounded-xl bg-holio-orange py-3 text-sm font-semibold text-white opacity-60 cursor-not-allowed hover:bg-orange-500">
             Link Desktop Device
           </button>
         </div>
 
-        {sessions.length > 0 && (
+        {otherSessions.length > 0 && (
           <>
             <p className="px-4 pt-5 pb-1 text-xs font-semibold uppercase tracking-wider text-holio-muted">Active Sessions</p>
             <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
-              {sessions.map((ses, i) => {
-                const Icon = ses.icon
+              {otherSessions.map((ses, i) => {
+                const Icon = deviceIcon(ses.deviceType)
                 return (
                   <div key={ses.id}>
                     {i > 0 && <div className="mx-4 border-t border-gray-100 dark:border-gray-800" />}
@@ -115,7 +136,7 @@ export default function SettingsDevicesPage() {
             <p className="mb-5 text-sm text-holio-muted">All other devices will be logged out immediately.</p>
             <div className="flex gap-2">
               <button onClick={() => setShowConfirm(false)} className="flex-1 rounded-xl bg-gray-100 dark:bg-gray-800 py-2.5 text-sm font-medium text-holio-text hover:bg-gray-200 dark:hover:bg-gray-700">Cancel</button>
-              <button onClick={terminateAll} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-medium text-white hover:bg-red-600">Terminate</button>
+              <button onClick={handleTerminateAll} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-medium text-white hover:bg-red-600">Terminate</button>
             </div>
           </div>
         </div>

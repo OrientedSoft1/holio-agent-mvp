@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, MapPin, UserPlus, Users, Plus, X, ShieldBan } from 'lucide-react'
 import { useContactsStore, type Contact } from '../stores/contactsStore'
+import { usePresenceStore } from '../stores/presenceStore'
 import { cn } from '../lib/utils'
 
 const actionItems = [
@@ -11,6 +12,21 @@ const actionItems = [
   { icon: Plus, label: 'Add New Contact', route: '/contacts/new' },
   { icon: ShieldBan, label: 'Blocked Contacts', route: '/contacts/blocked' },
 ]
+
+function formatLastSeen(isoDate: string): string {
+  const date = new Date(isoDate)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin} min ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDays = Math.floor(diffHr / 24)
+  if (diffDays === 1) return 'yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
 
 function getInitials(firstName: string, lastName: string | null) {
   const first = firstName.charAt(0).toUpperCase()
@@ -37,6 +53,8 @@ export default function ContactsListPage() {
   const navigate = useNavigate()
   const contacts = useContactsStore((s) => s.contacts)
   const fetchContacts = useContactsStore((s) => s.fetchContacts)
+  const onlineUsers = usePresenceStore((s) => s.onlineUsers)
+  const lastSeen = usePresenceStore((s) => s.lastSeen)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [scrolled, setScrolled] = useState(false)
@@ -147,31 +165,46 @@ export default function ContactsListPage() {
                 const displayName = user.lastName
                   ? `${user.firstName} ${user.lastName}`
                   : user.firstName
+                const isOnline = !!onlineUsers[user.id]
+                const userLastSeen = lastSeen[user.id]
 
                 return (
                   <div
                     key={contact.id}
                     className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-black/5"
                   >
-                    {user.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt={displayName}
-                        className="h-12 w-12 shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-holio-lavender">
-                        <span className="text-sm font-semibold text-holio-text">
-                          {getInitials(user.firstName, user.lastName)}
-                        </span>
-                      </div>
-                    )}
+                    <div className="relative shrink-0">
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={displayName}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-holio-lavender">
+                          <span className="text-sm font-semibold text-holio-text">
+                            {getInitials(user.firstName, user.lastName)}
+                          </span>
+                        </div>
+                      )}
+                      {isOnline && (
+                        <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-holio-offwhite bg-green-500" />
+                      )}
+                    </div>
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium text-holio-text">
                         {displayName}
                       </p>
-                      <p className="text-xs text-holio-muted">last seen recently</p>
+                      {isOnline ? (
+                        <p className="text-xs text-green-500">online</p>
+                      ) : userLastSeen ? (
+                        <p className="text-xs text-holio-muted">
+                          last seen {formatLastSeen(userLastSeen)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-holio-muted">last seen recently</p>
+                      )}
                     </div>
                   </div>
                 )

@@ -1,19 +1,57 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Radar, Eye, EyeOff, Users, MapPin } from 'lucide-react'
+import { ChevronLeft, Radar, Eye, EyeOff, Users, MapPin, Loader2 } from 'lucide-react'
+import api from '../services/api.service'
 
-const MOCK_NEARBY = [
-  { id: '1', name: 'Sarah K.', distance: '~200m away', avatar: null },
-  { id: '2', name: 'Mike R.', distance: '~500m away', avatar: null },
-  { id: '3', name: 'Lisa P.', distance: '~1.2km away', avatar: null },
-]
+interface NearbyUser {
+  id: string
+  name: string
+  distance: string
+  avatar: string | null
+}
 
 export default function NearbyPeoplePage() {
   const navigate = useNavigate()
   const [visible, setVisible] = useState(false)
+  const [nearbyUsers, setNearbyUsers] = useState<NearbyUser[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!visible) {
+      setNearbyUsers([])
+      return
+    }
+
+    let cancelled = false
+
+    const fetchNearby = async (lat?: number, lng?: number) => {
+      setLoading(true)
+      try {
+        const { data } = await api.get<NearbyUser[]>('/users/nearby', {
+          params: lat != null && lng != null ? { lat, lng } : undefined,
+        })
+        if (!cancelled) setNearbyUsers(data)
+      } catch {
+        if (!cancelled) setNearbyUsers([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => fetchNearby(pos.coords.latitude, pos.coords.longitude),
+        () => fetchNearby(),
+      )
+    } else {
+      fetchNearby()
+    }
+
+    return () => { cancelled = true }
+  }, [visible])
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={() => navigate('/contacts')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
@@ -54,21 +92,29 @@ export default function NearbyPeoplePage() {
         <p className="px-4 pt-5 pb-1 text-xs font-semibold uppercase tracking-wider text-holio-muted">People Nearby</p>
         <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
           {visible ? (
-            MOCK_NEARBY.map((user, i) => (
-              <div key={user.id}>
-                {i > 0 && <div className="mx-4 border-t border-gray-100 dark:border-gray-800" />}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-lavender text-sm font-semibold text-holio-text">
-                    {user.name.split(' ').map((n) => n[0]).join('')}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-holio-text">{user.name}</p>
-                    <p className="text-xs text-holio-muted">{user.distance}</p>
-                  </div>
-                  <MapPin className="h-4 w-4 flex-shrink-0 text-holio-muted" />
-                </div>
+            loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-holio-orange" />
               </div>
-            ))
+            ) : nearbyUsers.length > 0 ? (
+              nearbyUsers.map((user, i) => (
+                <div key={user.id}>
+                  {i > 0 && <div className="mx-4 border-t border-gray-100 dark:border-gray-800" />}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-lavender text-sm font-semibold text-holio-text">
+                      {user.name.split(' ').map((n) => n[0]).join('')}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-holio-text">{user.name}</p>
+                      <p className="text-xs text-holio-muted">{user.distance}</p>
+                    </div>
+                    <MapPin className="h-4 w-4 flex-shrink-0 text-holio-muted" />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="px-4 py-5 text-center text-sm text-holio-muted">No people found nearby</p>
+            )
           ) : (
             <p className="px-4 py-5 text-center text-sm text-holio-muted">Enable visibility to see people nearby</p>
           )}

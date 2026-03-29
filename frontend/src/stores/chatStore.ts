@@ -15,13 +15,15 @@ interface ChatState {
 
   fetchChats: (companyId?: string) => Promise<void>
   fetchMessages: (chatId: string, page?: number) => Promise<void>
-  setActiveChat: (chat: Chat) => void
+  setActiveChat: (chat: Chat | null) => void
   addMessage: (message: Message) => void
   updateMessage: (messageId: string, updates: Partial<Message>) => void
   removeMessage: (messageId: string) => void
   setTyping: (chatId: string, userId: string, isTyping: boolean) => void
   createDM: (targetUserId: string) => Promise<Chat>
-  sendMessage: (chatId: string, content: string, type?: string, extra?: { fileUrl?: string; metadata?: Record<string, unknown> }) => Promise<void>
+  createChannel: (companyId: string, name: string, description?: string, isPublic?: boolean) => Promise<Chat>
+  createGroup: (name: string, memberUserIds: string[], description?: string) => Promise<Chat>
+  sendMessage: (chatId: string, content: string, type?: string, extra?: { fileUrl?: string; replyToId?: string; metadata?: Record<string, unknown> }) => Promise<void>
   setReplyTo: (message: Message | null) => void
   setEditing: (message: Message | null) => void
 }
@@ -51,16 +53,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchMessages: async (chatId: string, page = 1) => {
     set({ messagesLoading: true })
     try {
-      const { data } = await api.get<Message[]>(`/chats/${chatId}/messages`, {
-        params: { page, limit: 30 },
-      })
+      const { data: res } = await api.get<{ data: Message[]; total: number }>(
+        `/chats/${chatId}/messages`,
+        { params: { page, limit: 30 } },
+      )
+      const msgs = res.data
       if (page === 1) {
-        set({ messages: data, messagesLoading: false, hasMoreMessages: data.length === 30 })
+        set({ messages: msgs, messagesLoading: false, hasMoreMessages: msgs.length === 30 })
       } else {
         set((state) => ({
-          messages: [...data, ...state.messages],
+          messages: [...msgs, ...state.messages],
           messagesLoading: false,
-          hasMoreMessages: data.length === 30,
+          hasMoreMessages: msgs.length === 30,
         }))
       }
     } catch {
@@ -68,7 +72,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  setActiveChat: (chat: Chat) => {
+  setActiveChat: (chat: Chat | null) => {
     set({ activeChat: chat, messages: [], hasMoreMessages: true, replyToMessage: null, editingMessage: null })
   },
 
@@ -114,11 +118,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return data
   },
 
-  sendMessage: async (chatId: string, content: string, type = 'text', extra?: { fileUrl?: string; metadata?: Record<string, unknown> }) => {
+  createChannel: async (companyId: string, name: string, description?: string, isPublic?: boolean) => {
+    const { data } = await api.post<Chat>('/chats/channel', { companyId, name, description, isPublic })
+    set((state) => {
+      const exists = state.chats.some((c) => c.id === data.id)
+      return exists ? state : { chats: [data, ...state.chats] }
+    })
+    return data
+  },
+
+  createGroup: async (name: string, memberUserIds: string[], description?: string) => {
+    const { data } = await api.post<Chat>('/groups/cross-company', { name, memberUserIds, description })
+    set((state) => {
+      const exists = state.chats.some((c) => c.id === data.id)
+      return exists ? state : { chats: [data, ...state.chats] }
+    })
+    return data
+  },
+
+  sendMessage: async (chatId: string, content: string, type = 'text', extra?: { fileUrl?: string; replyToId?: string; metadata?: Record<string, unknown> }) => {
     const { data } = await api.post<Message>(`/chats/${chatId}/messages`, {
       content,
       type,
       fileUrl: extra?.fileUrl,
+      replyToId: extra?.replyToId,
       metadata: extra?.metadata,
     })
     get().addMessage(data)

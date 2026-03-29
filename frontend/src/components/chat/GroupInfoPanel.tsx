@@ -1,15 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   X,
   UserPlus,
-  Image,
-  File,
-  Mic,
-  Link,
-  Users as UsersIcon,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import api from '../../services/api.service'
+import { usePresenceStore } from '../../stores/presenceStore'
 import type { Chat, ChatMember } from '../../types'
+
+function formatLastSeen(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return 'recently'
+}
 
 type InfoTab = 'members' | 'media' | 'files' | 'voice' | 'links' | 'gifs'
 
@@ -37,6 +43,28 @@ export default function GroupInfoPanel({
 }: GroupInfoPanelProps) {
   const [activeTab, setActiveTab] = useState<InfoTab>('members')
   const [notifications, setNotifications] = useState(!chat.muted)
+  const [mediaItems, setMediaItems] = useState<{ id: string; name?: string; url?: string; thumbnailUrl?: string }[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const onlineUsers = usePresenceStore((s) => s.onlineUsers)
+  const lastSeen = usePresenceStore((s) => s.lastSeen)
+
+  useEffect(() => {
+    if (activeTab === 'members' || !chat.id) return
+    let cancelled = false
+    const fetchMedia = async () => {
+      setMediaLoading(true)
+      try {
+        const { data } = await api.get(`/chats/${chat.id}/search`, { params: { type: activeTab } })
+        if (!cancelled) setMediaItems(Array.isArray(data) ? data : data.items ?? [])
+      } catch {
+        if (!cancelled) setMediaItems([])
+      } finally {
+        if (!cancelled) setMediaLoading(false)
+      }
+    }
+    fetchMedia()
+    return () => { cancelled = true }
+  }, [chat.id, activeTab])
 
   const initials = (chat.name ?? 'Group')
     .split(' ')
@@ -57,6 +85,7 @@ export default function GroupInfoPanel({
         <h2 className="text-base font-semibold text-holio-text">Group Info</h2>
         <button
           onClick={onClose}
+          aria-label="Close panel"
           className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100"
         >
           <X className="h-5 w-5" />
@@ -93,7 +122,19 @@ export default function GroupInfoPanel({
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm text-holio-text">Notifications</span>
             <button
-              onClick={() => setNotifications(!notifications)}
+              onClick={async () => {
+                const newVal = !notifications
+                setNotifications(newVal)
+                try {
+                  if (newVal) {
+                    await api.post(`/chats/${chat.id}/unmute`)
+                  } else {
+                    await api.post(`/chats/${chat.id}/mute`, { duration: 'forever' })
+                  }
+                } catch {
+                  setNotifications(!newVal)
+                }
+              }}
               className={cn(
                 'relative h-6 w-11 rounded-full transition-colors',
                 notifications ? 'bg-holio-orange' : 'bg-gray-300',
@@ -161,7 +202,13 @@ export default function GroupInfoPanel({
                   <p className="truncate text-sm font-medium text-holio-text">
                     {member.user.firstName} {member.user.lastName ?? ''}
                   </p>
-                  <p className="text-xs text-holio-muted">last seen recently</p>
+                  <p className="text-xs text-holio-muted">
+                    {onlineUsers[member.userId]
+                      ? <span className="text-green-500">online</span>
+                      : lastSeen[member.userId]
+                        ? `last seen ${formatLastSeen(lastSeen[member.userId])}`
+                        : 'last seen recently'}
+                  </p>
                 </div>
                 {member.role !== 'member' && (
                   <span className="rounded bg-holio-orange/10 px-2 py-0.5 text-[11px] font-medium text-holio-orange">
@@ -176,18 +223,30 @@ export default function GroupInfoPanel({
           </div>
         )}
 
-        {activeTab === 'media' && (
-          <div className="grid grid-cols-3 gap-0.5 p-0.5">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="aspect-square rounded-sm bg-gray-200" />
-            ))}
-          </div>
-        )}
-
-        {activeTab !== 'members' && activeTab !== 'media' && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-holio-muted">No {activeTab} yet</p>
-          </div>
+        {activeTab !== 'members' && (
+          mediaLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+            </div>
+          ) : mediaItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-sm text-holio-muted">No {activeTab} yet</p>
+            </div>
+          ) : activeTab === 'media' || activeTab === 'gifs' ? (
+            <div className="grid grid-cols-3 gap-0.5 p-0.5">
+              {mediaItems.map((item) => (
+                <div key={item.id} className="aspect-square overflow-hidden rounded-sm bg-gray-200">
+                  <img src={item.thumbnailUrl ?? item.url} alt="" className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50 px-4">
+              {mediaItems.map((item) => (
+                <div key={item.id} className="py-2.5 text-sm text-holio-text truncate">{item.name ?? item.url ?? 'File'}</div>
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>

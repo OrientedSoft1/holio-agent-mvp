@@ -1,47 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useNavigate } from 'react-router-dom'
+import { useSubscriptionStore } from '../stores/subscriptionStore'
+import { FEATURES, FALLBACK_PLANS } from '../config/plans'
 
-type Plan = 'annual' | 'monthly'
-
-const PLANS = {
-  annual: { pricePerMonth: '$3.99', totalPerYear: '$47.88', label: 'Annual', discount: '-40%' },
-  monthly: { pricePerMonth: '$5.99', totalPerYear: null, label: 'Monthly', discount: null },
-} as const
-
-const FEATURES = [
-  {
-    emoji: '🌟',
-    title: 'Upgraded Stories',
-    subtitle: 'Priority placement, stealth viewing, expiration control',
-  },
-  {
-    emoji: '🚀',
-    title: 'Doubled Limits',
-    subtitle: 'Up to 1 000 channels, 200 folders, 20 pinned chats',
-  },
-  {
-    emoji: '📦',
-    title: '4 GB Upload Size',
-    subtitle: 'Send files up to 4 GB each and enjoy faster downloads',
-  },
-  {
-    emoji: '🎙️',
-    title: 'Voice-to-Text',
-    subtitle: 'Transcribe voice and video messages automatically',
-  },
-  {
-    emoji: '🎨',
-    title: 'Unique Reactions',
-    subtitle: 'Access exclusive animated emoji reactions',
-  },
-  {
-    emoji: '🔒',
-    title: 'Advanced Privacy',
-    subtitle: 'Hide read times, restrict forwarding, and more',
-  },
-]
+type PlanInterval = 'annual' | 'monthly'
 
 function SparkleGraphic() {
   return (
@@ -54,22 +18,74 @@ function SparkleGraphic() {
   )
 }
 
+function formatPrice(amount: number, currency: string) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+}
+
+function usePlans() {
+  const storePlans = useSubscriptionStore((s) => s.plans)
+
+  if (storePlans.length > 0) {
+    const annual = storePlans.find((p) => p.interval === 'annual')
+    const monthly = storePlans.find((p) => p.interval === 'monthly')
+    return {
+      annual: {
+        id: annual?.id ?? '',
+        pricePerMonth: annual ? formatPrice(annual.pricePerMonth, annual.currency) : FALLBACK_PLANS.annual.pricePerMonth,
+        totalPerYear: annual?.totalPerYear ? formatPrice(annual.totalPerYear, annual.currency) : FALLBACK_PLANS.annual.totalPerYear,
+        label: 'Annual',
+        discount: annual?.discount ?? FALLBACK_PLANS.annual.discount,
+      },
+      monthly: {
+        id: monthly?.id ?? '',
+        pricePerMonth: monthly ? formatPrice(monthly.pricePerMonth, monthly.currency) : FALLBACK_PLANS.monthly.pricePerMonth,
+        totalPerYear: null as string | null,
+        label: 'Monthly',
+        discount: monthly?.discount ?? null,
+      },
+    }
+  }
+
+  return {
+    annual: { ...FALLBACK_PLANS.annual, id: '' },
+    monthly: { ...FALLBACK_PLANS.monthly, id: '' },
+  }
+}
+
 export default function HolioProPage() {
   const navigate = useNavigate()
-  const [selectedPlan, setSelectedPlan] = useState<Plan>('annual')
+  const [selectedPlan, setSelectedPlan] = useState<PlanInterval>('annual')
+  const fetchPlans = useSubscriptionStore((s) => s.fetchPlans)
+  const subscribe = useSubscriptionStore((s) => s.subscribe)
+  const subscribing = useSubscriptionStore((s) => s.subscribing)
+  const plans = usePlans()
 
-  const plan = PLANS[selectedPlan]
+  useEffect(() => {
+    fetchPlans()
+  }, [fetchPlans])
+
+  const plan = plans[selectedPlan]
   const ctaText =
     selectedPlan === 'annual'
       ? `Subscribe for ${plan.totalPerYear} / year`
       : `Subscribe for ${plan.pricePerMonth} / month`
 
+  const handleSubscribe = async () => {
+    const planId = plans[selectedPlan].id
+    if (!planId) return
+    const result = await subscribe(planId)
+    if (result.checkoutUrl) {
+      window.location.href = result.checkoutUrl
+    }
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+    <div className="flex min-h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="relative flex h-14 items-center gap-3 bg-white px-4 shadow-sm">
         <button
           onClick={() => navigate('/settings')}
+          aria-label="Back to settings"
           className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -101,9 +117,9 @@ export default function HolioProPage() {
                   : 'border-gray-200 bg-white',
               )}
             >
-              {PLANS.annual.discount && (
+              {plans.annual.discount && (
                 <span className="absolute -top-2.5 right-3 rounded-full bg-holio-orange px-2 py-0.5 text-[10px] font-bold text-white">
-                  {PLANS.annual.discount}
+                  {plans.annual.discount}
                 </span>
               )}
               <div
@@ -118,7 +134,7 @@ export default function HolioProPage() {
               </div>
               <span className="text-xs font-semibold text-holio-muted">Annual</span>
               <span className="mt-1 text-lg font-black text-holio-text">
-                {PLANS.annual.pricePerMonth}
+                {plans.annual.pricePerMonth}
               </span>
               <span className="text-[11px] text-holio-muted">per month</span>
             </button>
@@ -145,15 +161,19 @@ export default function HolioProPage() {
               </div>
               <span className="text-xs font-semibold text-holio-muted">Monthly</span>
               <span className="mt-1 text-lg font-black text-holio-text">
-                {PLANS.monthly.pricePerMonth}
+                {plans.monthly.pricePerMonth}
               </span>
               <span className="text-[11px] text-holio-muted">per month</span>
             </button>
           </div>
 
           {/* CTA */}
-          <button className="mt-5 w-full rounded-xl bg-holio-orange py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-orange-500 active:scale-[0.98]">
-            {ctaText}
+          <button
+            onClick={handleSubscribe}
+            disabled={subscribing}
+            className="mt-5 w-full rounded-xl bg-holio-orange py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-orange-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {subscribing ? 'Processing...' : ctaText}
           </button>
 
           {/* Feature list */}

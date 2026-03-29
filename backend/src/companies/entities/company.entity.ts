@@ -56,6 +56,22 @@ export class Company {
     guardrailVersion?: string;
     defaultModelId?: string;
     maxTokensBudget?: number;
+    kbRoleArn?: string;
+    aossCollectionArn?: string;
+    aossIndexName?: string;
+  } | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  openaiConfig: {
+    apiKey?: string;
+    organizationId?: string;
+    defaultModelId?: string;
+  } | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  geminiConfig: {
+    apiKey?: string;
+    defaultModelId?: string;
   } | null;
 
   @CreateDateColumn()

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { Search, Plus, MessageSquarePlus } from 'lucide-react'
+import { Search, MessageSquarePlus } from 'lucide-react'
 import ChatItem from './ChatItem'
 import FolderTabs from './FolderTabs'
 import StoryCircle from '../stories/StoryCircle'
@@ -9,6 +9,7 @@ import { useCompanyStore } from '../../stores/companyStore'
 import { useFolderStore } from '../../stores/folderStore'
 import { useStoryStore } from '../../stores/storyStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useUiStore } from '../../stores/uiStore'
 import { cn } from '../../lib/utils'
 import type { Chat } from '../../types'
 
@@ -104,10 +105,20 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
   const fetchStories = useStoryStore((s) => s.fetchStories)
   const openViewer = useStoryStore((s) => s.openViewer)
   const currentUser = useAuthStore((s) => s.user)
+  const activeNavItem = useUiStore((s) => s.activeNavItem)
   useEffect(() => { fetchChats(activeCompany?.id) }, [fetchChats, activeCompany?.id])
   useEffect(() => { fetchStories() }, [fetchStories])
 
-  const allChats = useMemo(() => filterChats(chats), [chats, filterChats])
+  const allChats = useMemo(() => {
+    const folderFiltered = filterChats(chats)
+    switch (activeNavItem) {
+      case 'personal': return folderFiltered.filter((c) => c.type === 'private')
+      case 'company': return folderFiltered.filter((c) => c.type === 'group')
+      case 'channels': return folderFiltered.filter((c) => c.type === 'channel')
+      case 'favorites': return folderFiltered.filter((c) => c.isFavourite)
+      default: return folderFiltered
+    }
+  }, [chats, filterChats, activeNavItem])
 
   const favouriteChats = useMemo(
     () => allChats.filter((c) => c.isFavourite),
@@ -127,16 +138,24 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
   const displayedPinned = useMemo(() => {
     if (!searchQuery.trim()) return pinnedChats
     const q = searchQuery.toLowerCase()
-    return pinnedChats.filter((c) => c.name?.toLowerCase().includes(q) || c.lastMessage?.content.toLowerCase().includes(q))
+    return pinnedChats.filter((c) => c.name?.toLowerCase().includes(q) || c.lastMessage?.content?.toLowerCase().includes(q))
   }, [pinnedChats, searchQuery])
 
   const displayedRegular = useMemo(() => {
     if (!searchQuery.trim()) return regularChats
     const q = searchQuery.toLowerCase()
-    return regularChats.filter((c) => c.name?.toLowerCase().includes(q) || c.lastMessage?.content.toLowerCase().includes(q))
+    return regularChats.filter((c) => c.name?.toLowerCase().includes(q) || c.lastMessage?.content?.toLowerCase().includes(q))
   }, [regularChats, searchQuery])
 
   const isEmpty = allChats.length === 0 && !loading
+
+  const emptyLabel: Record<string, string> = {
+    personal: 'No personal chats yet',
+    company: 'No group chats yet',
+    channels: 'No channels yet',
+    favorites: 'No favourites yet',
+  }
+  const emptyMessage = emptyLabel[activeNavItem] ?? 'No conversations yet'
 
   return (
     <div className="flex h-full w-full flex-col bg-white sm:w-80 sm:flex-shrink-0 sm:border-r sm:border-gray-100">
@@ -205,7 +224,7 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-holio-lavender/20">
               <MessageSquarePlus className="h-8 w-8 text-holio-lavender" />
             </div>
-            <p className="mt-4 text-sm font-medium text-holio-text">No conversations yet</p>
+            <p className="mt-4 text-sm font-medium text-holio-text">{emptyMessage}</p>
             <p className="mt-1 text-xs text-holio-muted">Start a new chat to begin messaging</p>
           </div>
         ) : (
@@ -242,12 +261,6 @@ export default function ChatListPanel({ selectedChatId, onSelectChat }: ChatList
           </>
         )}
 
-        <button
-          className="absolute right-4 bottom-4 flex h-14 w-14 items-center justify-center rounded-full bg-holio-orange shadow-lg transition-transform hover:scale-105 active:scale-95"
-          title="New chat"
-        >
-          <Plus className="h-6 w-6 text-white" />
-        </button>
       </div>
       <StoryViewer />
     </div>

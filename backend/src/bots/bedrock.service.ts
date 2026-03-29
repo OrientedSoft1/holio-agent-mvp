@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 interface InvokeConfig {
   modelId: string;
@@ -23,14 +27,47 @@ interface InvokeResult {
   stopReason?: string;
 }
 
+const REGION_PREFIX_MAP: Record<string, string> = {
+  'us-east-1': 'us',
+  'us-west-2': 'us',
+  'eu-west-1': 'eu',
+  'eu-central-1': 'eu',
+  'ap-northeast-1': 'jp',
+  'ap-southeast-2': 'au',
+  'ap-south-1': 'apac',
+  'ap-southeast-1': 'apac',
+};
+
+const INFERENCE_PROFILE_MODELS = [
+  'anthropic.claude-sonnet-4-6',
+  'anthropic.claude-sonnet-4-20250514-v1:0',
+  'anthropic.claude-sonnet-4-5-20250929-v1:0',
+  'anthropic.claude-opus-4-20250514-v1:0',
+  'anthropic.claude-haiku-4-5-20251001-v1:0',
+];
+
 @Injectable()
 export class BedrockService {
   private readonly logger = new Logger(BedrockService.name);
+
+  private resolveModelId(modelId: string, region: string): string {
+    if (modelId.includes('.') && modelId.split('.')[0].match(/^(us|eu|ap|jp|au|apac|global)$/)) {
+      return modelId;
+    }
+    if (INFERENCE_PROFILE_MODELS.includes(modelId)) {
+      const prefix = REGION_PREFIX_MAP[region] ?? 'us';
+      return `${prefix}.${modelId}`;
+    }
+    return modelId;
+  }
 
   async invokeModel(config: InvokeConfig): Promise<InvokeResult> {
     try {
       const { BedrockRuntimeClient, ConverseCommand } =
         await import('@aws-sdk/client-bedrock-runtime');
+      type ConverseCommandInput = ConstructorParameters<
+        typeof ConverseCommand
+      >[0];
 
       const clientOptions: Record<string, unknown> = {
         region: config.region ?? 'eu-west-1',
@@ -44,13 +81,18 @@ export class BedrockService {
 
       const client = new BedrockRuntimeClient(clientOptions);
 
+      const resolvedModelId = this.resolveModelId(
+        config.modelId,
+        config.region ?? 'eu-west-1',
+      );
+
       const messages = config.messages.map((m) => ({
         role: m.role,
         content: [{ text: m.content }],
       }));
 
-      const commandInput: Record<string, unknown> = {
-        modelId: config.modelId,
+      const commandInput: ConverseCommandInput = {
+        modelId: resolvedModelId,
         system: [{ text: config.systemPrompt }],
         messages,
         inferenceConfig: {
@@ -66,7 +108,7 @@ export class BedrockService {
         };
       }
 
-      const command = new ConverseCommand(commandInput as any);
+      const command = new ConverseCommand(commandInput);
       const response = await client.send(command);
 
       const outputContent = response.output?.message?.content?.[0]?.text ?? '';
@@ -79,10 +121,10 @@ export class BedrockService {
         stopReason: response.stopReason,
       };
     } catch (error) {
-      this.logger.warn(
-        `Bedrock invocation failed, returning mock response: ${error}`,
+      this.logger.error(`Bedrock invocation failed: ${error}`);
+      throw new ServiceUnavailableException(
+        'AI service is currently unavailable. Please check your AWS Bedrock configuration.',
       );
-      return this.mockResponse(config);
     }
   }
 
@@ -92,6 +134,9 @@ export class BedrockService {
     try {
       const { BedrockRuntimeClient, ConverseStreamCommand } =
         await import('@aws-sdk/client-bedrock-runtime');
+      type ConverseStreamCommandInput = ConstructorParameters<
+        typeof ConverseStreamCommand
+      >[0];
 
       const clientOptions: Record<string, unknown> = {
         region: config.region ?? 'eu-west-1',
@@ -105,13 +150,18 @@ export class BedrockService {
 
       const client = new BedrockRuntimeClient(clientOptions);
 
+      const resolvedModelId = this.resolveModelId(
+        config.modelId,
+        config.region ?? 'eu-west-1',
+      );
+
       const messages = config.messages.map((m) => ({
         role: m.role,
         content: [{ text: m.content }],
       }));
 
-      const commandInput: Record<string, unknown> = {
-        modelId: config.modelId,
+      const commandInput: ConverseStreamCommandInput = {
+        modelId: resolvedModelId,
         system: [{ text: config.systemPrompt }],
         messages,
         inferenceConfig: {
@@ -127,7 +177,7 @@ export class BedrockService {
         };
       }
 
-      const command = new ConverseStreamCommand(commandInput as any);
+      const command = new ConverseStreamCommand(commandInput);
       const response = await client.send(command);
 
       if (response.stream) {
@@ -138,22 +188,10 @@ export class BedrockService {
         }
       }
     } catch (error) {
-      this.logger.warn(
-        `Bedrock stream failed, yielding mock response: ${error}`,
+      this.logger.error(`Bedrock stream failed: ${error}`);
+      throw new ServiceUnavailableException(
+        'AI service is currently unavailable. Please check your AWS Bedrock configuration.',
       );
-      const mock = this.mockResponse(config);
-      yield mock.content;
     }
-  }
-
-  private mockResponse(config: InvokeConfig): InvokeResult {
-    const typeHint = config.systemPrompt.slice(0, 80);
-    return {
-      content:
-        `[Mock Response] I'm an AI agent powered by ${config.modelId}. ` +
-        `AWS Bedrock is not configured yet. In production, I would use my ` +
-        `capabilities to help with tasks related to: "${typeHint}..."`,
-      tokensUsed: 0,
-    };
   }
 }

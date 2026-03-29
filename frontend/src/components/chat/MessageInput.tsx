@@ -1,10 +1,9 @@
-import { useState, useRef, useCallback, useMemo, useEffect, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, type KeyboardEvent, type ChangeEvent } from 'react'
 import {
   Paperclip,
   Smile,
   Mic,
   Send,
-  ImageIcon,
   Bot,
   DollarSign,
   Megaphone,
@@ -22,7 +21,9 @@ import VoiceRecorder from '../messages/VoiceRecorder'
 import GifPicker from './GifPicker'
 import AttachMenu from './AttachMenu'
 import EmojiPicker from './EmojiPicker'
+import CreatePollModal from './CreatePollModal'
 import api from '../../services/api.service'
+import { getSocket } from '../../services/socket.service'
 import { cn } from '../../lib/utils'
 
 interface MessageInputProps {
@@ -60,6 +61,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const [showSchedule, setShowSchedule] = useState(false)
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
+  const [showPollModal, setShowPollModal] = useState(false)
   const sendMessage = useChatStore((s) => s.sendMessage)
   const replyToMessage = useChatStore((s) => s.replyToMessage)
   const editingMessage = useChatStore((s) => s.editingMessage)
@@ -70,6 +72,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const docInputRef = useRef<HTMLInputElement>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const filteredBots = useMemo(() => {
     if (!mentionQuery) return companyBots
@@ -99,14 +102,14 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     setShowSchedule(false)
     try {
       if (editingMessage) {
-        await api.patch(`/chats/${chatId}/messages/${editingMessage.id}`, { content: trimmed })
-        updateMessage(editingMessage.id, { content: trimmed, isEdited: true } as any)
+        await api.patch(`/messages/${editingMessage.id}`, { content: trimmed })
+        updateMessage(editingMessage.id, { content: trimmed, isEdited: true })
         setEditing(null)
       } else {
         const extra: Record<string, unknown> = {}
         if (replyToMessage) extra.replyToId = replyToMessage.id
         if (scheduledAt) extra.metadata = { scheduledAt }
-        await sendMessage(chatId, trimmed, 'text', extra as any)
+        await sendMessage(chatId, trimmed, 'text', extra)
         setReplyTo(null)
       }
     } catch {
@@ -185,12 +188,21 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     }
   }
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInput = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value
     setText(newText)
     const el = e.target
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+
+    const socket = getSocket()
+    if (socket) {
+      socket.emit('typing:start', { chatId })
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit('typing:stop', { chatId })
+      }, 2000)
+    }
 
     const cursorPos = el.selectionStart
     const before = newText.slice(0, cursorPos)
@@ -256,15 +268,45 @@ export default function MessageInput({ chatId }: MessageInputProps) {
     }
   }, [chatId, sendMessage])
 
-  const handleAttachSelect = useCallback((type: 'photo' | 'document' | 'contact' | 'location') => {
+  const handleAttachSelect = useCallback((type: 'photo' | 'document' | 'contact' | 'location' | 'poll') => {
     if (type === 'photo') {
       photoInputRef.current?.click()
     } else if (type === 'document') {
       docInputRef.current?.click()
+    } else if (type === 'poll') {
+      setShowPollModal(true)
+    } else if (type === 'contact') {
+      window.alert('Contact sharing is coming soon')
+    } else if (type === 'location') {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const content = `\u{1F4CD} Location: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`
+            try {
+              await sendMessage(chatId, content, 'text', {
+                metadata: { type: 'location', lat: pos.coords.latitude, lng: pos.coords.longitude },
+              })
+            } catch {
+              // send failed silently
+            }
+          },
+          () => window.alert('Unable to get your location'),
+        )
+      } else {
+        window.alert('Geolocation is not supported by your browser')
+      }
     }
-  }, [])
+  }, [chatId, sendMessage])
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, messageType: 'image' | 'file') => {
+  const handleCreatePoll = useCallback(async (poll: {
+    question: string; options: string[]; allowMultiple: boolean; anonymous: boolean; quizMode: boolean; correctOption?: number
+  }) => {
+    try {
+      await api.post('/polls', { chatId, ...poll })
+    } catch { /* silent */ }
+  }, [chatId])
+
+  const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>, messageType: 'image' | 'file') => {
     const files = e.target.files
     if (!files || files.length === 0) return
     e.target.value = ''
@@ -405,6 +447,13 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           </div>
         )}
 
+        {showGifPicker && (
+          <GifPicker
+            onSelect={handleGifSelect}
+            onClose={() => setShowGifPicker(false)}
+          />
+        )}
+
         <div
           className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-full px-4 py-2.5 text-sm text-transparent"
           aria-hidden
@@ -442,77 +491,61 @@ export default function MessageInput({ chatId }: MessageInputProps) {
         )}
       </div>
 
+      <button
+        onClick={() => setRecording(true)}
+        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+      >
+        <Mic className="h-5 w-5" />
+      </button>
+
       <div className="relative">
         <button
-          onClick={() => setShowGifPicker(!showGifPicker)}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+          onClick={() => handleSend()}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setShowSchedule(!showSchedule)
+          }}
+          disabled={!text.trim() || sending}
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-40"
         >
-          <ImageIcon className="h-5 w-5" />
+          <Send className="h-5 w-5" />
         </button>
-        {showGifPicker && (
-          <GifPicker
-            onSelect={handleGifSelect}
-            onClose={() => setShowGifPicker(false)}
-          />
-        )}
-      </div>
-
-      {text.trim() ? (
-        <div className="relative">
-          <button
-            onClick={() => handleSend()}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setShowSchedule(!showSchedule)
-            }}
-            disabled={sending}
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-50"
-          >
-            <Send className="h-5 w-5" />
-          </button>
-          {showSchedule && (
-            <div className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-800">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-sm font-medium text-holio-text">
-                  <Clock className="h-4 w-4 text-holio-orange" />
-                  Schedule Message
-                </div>
-                <button onClick={() => setShowSchedule(false)} className="text-holio-muted hover:text-holio-text">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+        {showSchedule && (
+          <div className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-holio-text">
+                <Clock className="h-4 w-4 text-holio-orange" />
+                Schedule Message
               </div>
-              <input
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-holio-text outline-none focus:border-holio-orange dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-holio-text outline-none focus:border-holio-orange dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-              <button
-                onClick={handleScheduleSend}
-                disabled={!scheduleDate || !scheduleTime}
-                className="w-full rounded-lg bg-holio-orange py-2 text-xs font-medium text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-50"
-              >
-                Schedule
+              <button onClick={() => setShowSchedule(false)} className="text-holio-muted hover:text-holio-text">
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
-          )}
-        </div>
-      ) : (
-        <button
-          onClick={() => setRecording(true)}
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-        >
-          <Mic className="h-5 w-5" />
-        </button>
-      )}
+            <input
+              type="date"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-holio-text outline-none focus:border-holio-orange dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <input
+              type="time"
+              value={scheduleTime}
+              onChange={(e) => setScheduleTime(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-holio-text outline-none focus:border-holio-orange dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <button
+              onClick={handleScheduleSend}
+              disabled={!scheduleDate || !scheduleTime}
+              className="w-full rounded-lg bg-holio-orange py-2 text-xs font-medium text-white transition-colors hover:bg-holio-orange/90 disabled:opacity-50"
+            >
+              Schedule
+            </button>
+          </div>
+        )}
       </div>
+      </div>
+      <CreatePollModal open={showPollModal} onClose={() => setShowPollModal(false)} onCreatePoll={handleCreatePoll} />
     </div>
   )
 }

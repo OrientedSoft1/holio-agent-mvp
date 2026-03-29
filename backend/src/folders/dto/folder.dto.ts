@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsObject, IsArray, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  IsArray,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFolderDto {

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  ChevronLeft,
   ChevronRight,
   CircleDot,
   Wallet,
@@ -15,14 +16,10 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import { useSubscriptionStore } from '../stores/subscriptionStore'
 import { cn } from '../lib/utils'
 
 import OtherAccountView from '../components/settings/OtherAccountView'
-
-const QUICK_LINKS = [
-  { icon: CircleDot, label: 'My Stories', route: '/story' },
-  { icon: Wallet, label: 'Holio Credits', value: '0.00', route: '/holio-pro' },
-]
 
 const SETTINGS_MENU = [
   { icon: Phone, label: 'Recent Calls', route: '/calls' },
@@ -40,16 +37,34 @@ type MenuItem = { icon: typeof Phone; label: string; route: string } | 'separato
 export default function SettingsAccountPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const subscription = useSubscriptionStore((s) => s.subscription)
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription)
   const [otherAccountsOpen, setOtherAccountsOpen] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+
+  useEffect(() => { fetchSubscription() }, [fetchSubscription])
+
+  const quickLinks = [
+    { icon: CircleDot, label: 'My Stories', route: '/story' },
+    { icon: Wallet, label: 'Holio Credits', value: subscription ? `${subscription.daysLeft}d left` : '0.00', route: '/holio-pro' },
+  ]
 
   const name =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'No name'
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-lg font-medium text-holio-text">Account</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <ChevronLeft className="h-5 w-5 text-holio-text" />
+          </button>
+          <h1 className="text-lg font-medium text-holio-text">Account</h1>
+        </div>
         <button
           onClick={() => navigate('/edit-profile')}
           className="text-sm font-medium text-holio-orange"
@@ -82,7 +97,7 @@ export default function SettingsAccountPage() {
                 <p className="text-sm text-holio-muted">@{user.username}</p>
               )}
             </div>
-            <button className="flex-shrink-0 p-1 text-holio-orange">
+            <button onClick={() => setShowQr(true)} className="flex-shrink-0 p-1 text-holio-orange">
               <QrCode className="h-5 w-5" />
             </button>
           </div>
@@ -113,7 +128,7 @@ export default function SettingsAccountPage() {
 
         {/* Quick links */}
         <div className="mx-4 mt-3 rounded-2xl bg-white">
-          {QUICK_LINKS.map((item, i) => {
+          {quickLinks.map((item, i) => {
             const Icon = item.icon
             return (
               <div key={item.label}>
@@ -172,6 +187,20 @@ export default function SettingsAccountPage() {
 
         <div className="h-8" />
       </div>
+
+      {showQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowQr(false)}>
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="mb-4 text-base font-semibold text-holio-text">My QR Code</h4>
+            <div className="mx-auto mb-4 flex h-48 w-48 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
+              <QrCode className="h-16 w-16 text-holio-muted/40" />
+            </div>
+            <p className="mb-2 text-sm font-medium text-holio-text">@{user?.username ?? 'user'}</p>
+            <p className="text-xs text-holio-muted">Others can scan this code to add you on Holio</p>
+            <button onClick={() => setShowQr(false)} className="mt-4 w-full rounded-xl bg-gray-100 py-2.5 text-sm font-medium text-holio-text hover:bg-gray-200">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,39 +1,56 @@
+import { useEffect } from 'react'
 import { ArrowLeft, Star, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-
-const INTEGRATIONS = [
-  { name: 'Slack', icon: '💬', color: 'bg-purple-100', lastActive: '2 hours ago' },
-  { name: 'Google Drive', icon: '📁', color: 'bg-blue-100', lastActive: 'Yesterday' },
-  { name: 'Notion', icon: '📝', color: 'bg-gray-100', lastActive: '3 days ago' },
-]
-
-const CATEGORIES = [
-  { name: 'Work', count: 12 },
-  { name: 'Family', count: 5 },
-  { name: 'Developers', count: 23 },
-  { name: 'VIP', count: 8 },
-]
-
-const TAGS = [
-  { emoji: '🔥', label: 'Urgent', variant: 'lavender' as const },
-  { emoji: '📌', label: 'Pinned', variant: 'sage' as const },
-  { emoji: '✅', label: 'Done', variant: 'sage' as const },
-  { emoji: '⏳', label: 'Pending', variant: 'lavender' as const },
-  { emoji: '💡', label: 'Idea', variant: 'lavender' as const },
-  { emoji: '🐛', label: 'Bug', variant: 'sage' as const },
-]
-
-const SUBSCRIPTION_DAYS_LEFT = 23
-const SUBSCRIPTION_TOTAL_DAYS = 30
+import { useAuthStore } from '../stores/authStore'
+import { useSubscriptionStore } from '../stores/subscriptionStore'
+import { useIntegrationStore } from '../stores/integrationStore'
+import { useTagStore } from '../stores/tagStore'
+import { useContactsStore } from '../stores/contactsStore'
+import { useCompanyStore } from '../stores/companyStore'
 
 export default function HolioProDashboard() {
   const nav = useNavigate()
-  const progressPercent = Math.round(
-    (SUBSCRIPTION_DAYS_LEFT / SUBSCRIPTION_TOTAL_DAYS) * 100,
-  )
+
+  const user = useAuthStore((s) => s.user)
+  const subscription = useSubscriptionStore((s) => s.subscription)
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription)
+  const integrations = useIntegrationStore((s) => s.integrations)
+  const fetchIntegrations = useIntegrationStore((s) => s.fetchIntegrations)
+  const tags = useTagStore((s) => s.tags)
+  const fetchTags = useTagStore((s) => s.fetchTags)
+  const contacts = useContactsStore((s) => s.contacts)
+  const fetchContacts = useContactsStore((s) => s.fetchContacts)
+  const activeCompany = useCompanyStore((s) => s.activeCompany)
+
+  useEffect(() => {
+    fetchSubscription()
+    fetchTags()
+    fetchContacts()
+  }, [fetchSubscription, fetchTags, fetchContacts])
+
+  useEffect(() => {
+    if (activeCompany?.id) {
+      fetchIntegrations(activeCompany.id)
+    }
+  }, [activeCompany?.id, fetchIntegrations])
+
+  const initials = user
+    ? `${user.firstName?.charAt(0) ?? ''}${user.lastName?.charAt(0) ?? ''}`.toUpperCase()
+    : '?'
+  const displayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(' ')
+    : 'Unknown'
+
+  const progressPercent = subscription
+    ? Math.round((subscription.daysLeft / subscription.totalDays) * 100)
+    : 0
+
+  const displayedIntegrations = integrations
+    .filter((i) => i.connected)
+    .slice(0, 3)
 
   return (
-    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+    <div className="flex min-h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-gray-100 bg-white px-4">
         <button
@@ -52,7 +69,7 @@ export default function HolioProDashboard() {
           <div className="flex items-center gap-3">
             <div className="relative flex-shrink-0">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-holio-lavender/40 text-lg font-bold text-holio-text">
-                SK
+                {initials}
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-holio-orange shadow-sm">
                 <Star className="h-3 w-3 fill-white text-white" />
@@ -61,7 +78,7 @@ export default function HolioProDashboard() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h2 className="truncate text-base font-bold text-holio-text">
-                  Stein Kvarme
+                  {displayName}
                 </h2>
                 <span className="text-sm">⭐</span>
               </div>
@@ -74,20 +91,34 @@ export default function HolioProDashboard() {
 
         {/* Subscription Progress */}
         <div className="mx-4 mt-3 rounded-2xl bg-white p-4">
-          <div className="flex items-baseline justify-between">
-            <p className="text-sm font-semibold text-holio-text">
-              {SUBSCRIPTION_DAYS_LEFT} days left
-            </p>
-            <span className="text-xs font-medium text-holio-muted">
-              Monthly plan
-            </span>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-holio-orange transition-all"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+          {subscription ? (
+            <>
+              <div className="flex items-baseline justify-between">
+                <p className="text-sm font-semibold text-holio-text">
+                  {subscription.daysLeft} days left
+                </p>
+                <span className="text-xs font-medium text-holio-muted">
+                  {subscription.interval === 'annual' ? 'Annual' : 'Monthly'} plan
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-holio-orange transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-holio-muted">No active subscription</p>
+              <button
+                onClick={() => nav('/holio-pro')}
+                className="text-sm font-medium text-holio-orange transition-colors hover:text-holio-orange/80"
+              >
+                Subscribe
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Upsell Discount Banner */}
@@ -116,29 +147,33 @@ export default function HolioProDashboard() {
               Manage
             </button>
           </div>
-          <div className="space-y-2">
-            {INTEGRATIONS.map((svc) => (
-              <div
-                key={svc.name}
-                className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition-colors hover:border-holio-lavender hover:bg-holio-lavender/5"
-              >
-                <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${svc.color}`}
+          {displayedIntegrations.length > 0 ? (
+            <div className="space-y-2">
+              {displayedIntegrations.map((svc) => (
+                <div
+                  key={svc.id}
+                  className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition-colors hover:border-holio-lavender hover:bg-holio-lavender/5"
                 >
-                  {svc.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-holio-text">
-                    {svc.name}
-                  </p>
-                  <p className="text-xs text-holio-muted">
-                    Last activity: {svc.lastActive}
-                  </p>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-holio-lavender/20 text-xl">
+                    {svc.icon}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-holio-text">
+                      {svc.name}
+                    </p>
+                    <p className="text-xs text-holio-muted">
+                      {svc.description}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-holio-muted" />
                 </div>
-                <ChevronRight className="h-4 w-4 flex-shrink-0 text-holio-muted" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-3 text-center text-sm text-holio-muted">
+              No integrations connected yet
+            </p>
+          )}
         </div>
 
         {/* Contact Categories */}
@@ -147,19 +182,22 @@ export default function HolioProDashboard() {
         </p>
         <div className="mx-4 rounded-2xl bg-white p-4">
           <div className="grid grid-cols-2 gap-2.5">
-            {CATEGORIES.map((cat) => (
-              <div
-                key={cat.name}
-                className="flex flex-col rounded-xl border border-gray-100 px-4 py-3 transition-colors hover:border-holio-lavender hover:bg-holio-lavender/5"
-              >
-                <span className="text-sm font-semibold text-holio-text">
-                  {cat.name}
-                </span>
-                <span className="mt-0.5 text-xs text-holio-muted">
-                  {cat.count} Contacts
-                </span>
-              </div>
-            ))}
+            <div className="flex flex-col rounded-xl border border-gray-100 px-4 py-3 transition-colors hover:border-holio-lavender hover:bg-holio-lavender/5">
+              <span className="text-sm font-semibold text-holio-text">
+                All Contacts
+              </span>
+              <span className="mt-0.5 text-xs text-holio-muted">
+                {contacts.length} Contacts
+              </span>
+            </div>
+            <div className="flex flex-col rounded-xl border border-gray-100 px-4 py-3 transition-colors hover:border-holio-lavender hover:bg-holio-lavender/5">
+              <span className="text-sm font-semibold text-holio-text">
+                Favorites
+              </span>
+              <span className="mt-0.5 text-xs text-holio-muted">
+                {contacts.filter((c) => c.isFavorite).length} Contacts
+              </span>
+            </div>
           </div>
         </div>
 
@@ -168,20 +206,22 @@ export default function HolioProDashboard() {
           Message Tags
         </p>
         <div className="mx-4 rounded-2xl bg-white p-4">
-          <div className="flex flex-wrap gap-2">
-            {TAGS.map((tag) => (
-              <span
-                key={tag.label}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-holio-text ${
-                  tag.variant === 'lavender'
-                    ? 'bg-holio-lavender/20'
-                    : 'bg-holio-sage/30'
-                }`}
-              >
-                {tag.emoji} {tag.label}
-              </span>
-            ))}
-          </div>
+          {tags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-holio-lavender/20 px-3 py-1.5 text-sm font-medium text-holio-text"
+                >
+                  {tag.emoji} {tag.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="py-3 text-center text-sm text-holio-muted">
+              No tags created yet
+            </p>
+          )}
         </div>
       </div>
     </div>

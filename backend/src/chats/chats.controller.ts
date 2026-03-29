@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Body,
   Param,
@@ -70,5 +71,34 @@ export class ChatsController {
     @CurrentUser() user: User,
   ) {
     return this.chatsService.removeMember(id, userId, user.id);
+  }
+
+  @Get(':id/members')
+  @ApiOperation({ summary: 'List chat members' })
+  async getMembers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.chatsService.checkMembership(id, user.id);
+    return this.chatsService.getMembers(id);
+  }
+
+  @Put(':id/unarchive')
+  @ApiOperation({ summary: 'Unarchive a chat' })
+  async unarchive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.chatsService.setArchived(id, user.id, false);
+  }
+
+  @Post(':id/accept')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept a secret chat invitation' })
+  acceptSecretChat(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.chatsService.acceptSecretChat(id, user.id);
   }
 }

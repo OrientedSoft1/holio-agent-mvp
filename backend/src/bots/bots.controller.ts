@@ -81,6 +81,15 @@ export class BotsController {
     return this.botsService.remove(id, user.id);
   }
 
+  @Post('bots/:id/chat')
+  @ApiOperation({ summary: 'Start or get a dedicated bot chat' })
+  startBotChat(
+    @CurrentUser() user: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.botsService.startBotChat(id, user.id);
+  }
+
   @Post('bots/:id/invite')
   @ApiOperation({ summary: 'Invite a bot to a chat' })
   inviteToChat(

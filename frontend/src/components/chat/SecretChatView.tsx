@@ -14,8 +14,10 @@ import TypingIndicator from './TypingIndicator'
 import InChatSearch from '../search/InChatSearch'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
+import { usePresenceStore } from '../../stores/presenceStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getSocket } from '../../services/socket.service'
+import api from '../../services/api.service'
 import { cn } from '../../lib/utils'
 import type { Chat } from '../../types'
 
@@ -65,11 +67,18 @@ function groupMessagesByDate(messages: { createdAt: string }[]) {
   return groups
 }
 
+function formatRelTime(iso: string) {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  return h < 24 ? `${h}h ago` : 'recently'
+}
+
 export default function SecretChatView({ chat }: SecretChatViewProps) {
   const chatId = chat.id
   const peerName = chat.name ?? 'Secret Chat'
   const peerAvatar = chat.avatarUrl
-  const isOnline = false
 
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
@@ -79,9 +88,38 @@ export default function SecretChatView({ chat }: SecretChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
+  const [peerUserId, setPeerUserId] = useState<string | null>(null)
   const [showBanner, setShowBanner] = useState(true)
   const [selfDestructTime, setSelfDestructTime] = useState(0)
   const [showTimerMenu, setShowTimerMenu] = useState(false)
+
+  const isOnline = usePresenceStore((s) =>
+    peerUserId ? !!s.onlineUsers[peerUserId] : false,
+  )
+  const lastSeen = usePresenceStore((s) =>
+    peerUserId ? s.lastSeen[peerUserId] : undefined,
+  )
+
+  useEffect(() => {
+    if (!currentUserId) return
+    api
+      .get(`/chats/${chatId}/members`)
+      .then(({ data }) => {
+        const other = data.find((m: { userId: string }) => m.userId !== currentUserId)
+        if (other) setPeerUserId(other.userId)
+      })
+      .catch(() => {})
+  }, [chatId, currentUserId])
+
+  useEffect(() => {
+    api
+      .get(`/chats/${chatId}`)
+      .then(({ data }) => {
+        if (data.selfDestructTimer != null)
+          setSelfDestructTime(data.selfDestructTimer)
+      })
+      .catch(() => {})
+  }, [chatId])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -108,7 +146,11 @@ export default function SecretChatView({ chat }: SecretChatViewProps) {
     .slice(0, 2)
     .toUpperCase()
 
-  const statusText = isOnline ? 'online' : ''
+  const statusText = isOnline
+    ? 'online'
+    : lastSeen
+      ? `last seen ${formatRelTime(lastSeen)}`
+      : ''
   const dateGroups = groupMessagesByDate(messages)
   const activeTimerLabel =
     selfDestructTime > 0
@@ -149,14 +191,18 @@ export default function SecretChatView({ chat }: SecretChatViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {[Phone, MoreVertical].map((Icon, i) => (
-            <button
-              key={i}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <Icon className="h-5 w-5" />
-            </button>
-          ))}
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            title="Voice call"
+          >
+            <Phone className="h-5 w-5" />
+          </button>
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            title="More options"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
@@ -274,6 +320,11 @@ export default function SecretChatView({ chat }: SecretChatViewProps) {
                     onClick={() => {
                       setSelfDestructTime(opt.value)
                       setShowTimerMenu(false)
+                      api
+                        .patch(`/chats/${chatId}/self-destruct`, {
+                          timer: opt.value,
+                        })
+                        .catch(() => {})
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50',

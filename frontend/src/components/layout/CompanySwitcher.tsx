@@ -61,7 +61,11 @@ export default function CompanySwitcher() {
   }, [companies.length, fetchCompanies])
 
   function handleSwitch(company: Company) {
-    switchCompany(company)
+    if (activeCompany?.id === company.id) {
+      navigate('/select-company')
+    } else {
+      switchCompany(company)
+    }
   }
 
   return (

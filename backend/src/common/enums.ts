@@ -16,6 +16,7 @@ export enum InvitationStatus {
   ACCEPTED = 'accepted',
   DECLINED = 'declined',
   EXPIRED = 'expired',
+  CANCELLED = 'cancelled',
 }
 
 export enum ChatType {
@@ -59,6 +60,7 @@ export enum BotType {
   HR = 'hr',
   SUPPORT = 'support',
   DEVOPS = 'devops',
+  ACCOUNTING = 'accounting',
   CUSTOM = 'custom',
 }
 

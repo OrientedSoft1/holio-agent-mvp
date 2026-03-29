@@ -28,6 +28,14 @@ export class ReactionsService {
 
   // ──── Reactions ────
 
+  async findPollByMessageId(messageId: string): Promise<Poll> {
+    const poll = await this.pollRepo.findOne({ where: { messageId } });
+    if (!poll) {
+      throw new NotFoundException('Poll not found for this message');
+    }
+    return poll;
+  }
+
   async addReaction(
     messageId: string,
     userId: string,

@@ -60,7 +60,7 @@ export default function SettingsFoldersPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite dark:bg-gray-950">
+    <div className="flex h-full flex-col bg-holio-offwhite dark:bg-gray-950">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -144,12 +144,12 @@ export default function SettingsFoldersPage() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-holio-muted">Include</p>
             <div className="mb-5 space-y-2">
               {FILTER_OPTIONS.map((opt) => (
-                <label key={opt.key} className="flex cursor-pointer items-center gap-3" onClick={() => toggleFilter(opt.key)}>
+                <button key={opt.key} type="button" className="flex cursor-pointer items-center gap-3" onClick={() => toggleFilter(opt.key)}>
                   <div className={cn('flex h-5 w-5 items-center justify-center rounded border-2', filters[opt.key] ? 'border-holio-orange bg-holio-orange' : 'border-gray-300 dark:border-gray-600')}>
                     {filters[opt.key] && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                   </div>
                   <span className="text-sm text-holio-text">{opt.label}</span>
-                </label>
+                </button>
               ))}
             </div>
             <div className="flex gap-2">

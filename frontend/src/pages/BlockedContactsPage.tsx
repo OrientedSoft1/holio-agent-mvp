@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ShieldOff } from 'lucide-react'
 import { useContactsStore } from '../stores/contactsStore'
@@ -6,18 +6,23 @@ import { useContactsStore } from '../stores/contactsStore'
 export default function BlockedContactsPage() {
   const navigate = useNavigate()
   const { blocked, fetchBlocked, unblockUser } = useContactsStore()
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchBlocked()
+    fetchBlocked().finally(() => setLoading(false))
   }, [fetchBlocked])
 
   const handleUnblock = async (userId: string) => {
-    await unblockUser(userId)
-    fetchBlocked()
+    try {
+      await unblockUser(userId)
+      await fetchBlocked()
+    } catch {
+      await fetchBlocked()
+    }
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={() => navigate('/contacts')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
@@ -35,7 +40,13 @@ export default function BlockedContactsPage() {
           </div>
         </div>
 
-        {blocked.length === 0 ? (
+        {loading && blocked.length === 0 && (
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        )}
+
+        {!loading && blocked.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 pt-24">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-holio-lavender/10">
               <ShieldOff className="h-8 w-8 text-holio-muted" />

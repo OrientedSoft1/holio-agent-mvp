@@ -1,14 +1,5 @@
-import {
-  IsString,
-  IsOptional,
-  IsArray,
-  IsNumber,
-  Min,
-  ArrayMinSize,
-  ValidateNested,
-} from 'class-validator';
+import { IsString, IsOptional, IsArray, IsNumber, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 
 export class UpdateBedrockConfigDto {
   @ApiPropertyOptional({ example: 'AKIA...' })
@@ -54,6 +45,28 @@ export class UpdateBedrockConfigDto {
   @Min(0)
   @IsOptional()
   maxTokensBudget?: number;
+
+  @ApiPropertyOptional({
+    example: 'arn:aws:iam::123456789012:role/AmazonBedrockExecutionRoleForKB',
+  })
+  @IsString()
+  @IsOptional()
+  kbRoleArn?: string;
+
+  @ApiPropertyOptional({
+    example: 'arn:aws:aoss:us-east-1:123456789012:collection/abc123def456',
+  })
+  @IsString()
+  @IsOptional()
+  aossCollectionArn?: string;
+
+  @ApiPropertyOptional({
+    example: 'my-kb-index',
+    description: 'OpenSearch Serverless vector index name',
+  })
+  @IsString()
+  @IsOptional()
+  aossIndexName?: string;
 }
 
 export class ValidateBedrockCredentialsDto {

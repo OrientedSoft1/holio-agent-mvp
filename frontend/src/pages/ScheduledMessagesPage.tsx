@@ -78,7 +78,7 @@ export default function ScheduledMessagesPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           onClick={() => navigate('/chat')}

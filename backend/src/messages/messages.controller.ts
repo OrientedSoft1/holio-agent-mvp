@@ -11,10 +11,12 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagesService } from './messages.service.js';
 import { ChatsService } from '../chats/chats.service.js';
+import { BotsService } from '../bots/bots.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { UpdateMessageDto } from './dto/update-message.dto.js';
 import { ForwardMessageDto } from './dto/forward-message.dto.js';
@@ -28,9 +30,12 @@ import { User } from '../users/entities/user.entity.js';
 @UseGuards(JwtAuthGuard)
 @Controller()
 export class MessagesController {
+  private readonly logger = new Logger(MessagesController.name);
+
   constructor(
     private readonly messagesService: MessagesService,
     private readonly chatsService: ChatsService,
+    private readonly botsService: BotsService,
   ) {}
 
   @Get('chats/:chatId/messages')
@@ -57,7 +62,17 @@ export class MessagesController {
     @Body() dto: CreateMessageDto,
   ) {
     await this.chatsService.checkMembership(chatId, user.id);
-    return this.messagesService.create(chatId, user.id, dto);
+    const message = await this.messagesService.create(chatId, user.id, dto);
+
+    if (dto.content) {
+      this.botsService
+        .handleMentions(dto.content, chatId, message.id)
+        .catch((err) =>
+          this.logger.debug(`Bot mention handling failed: ${err}`),
+        );
+    }
+
+    return message;
   }
 
   @Patch('messages/:id')
@@ -169,5 +184,35 @@ export class MessagesController {
     @CurrentUser() user: User,
   ) {
     return this.messagesService.saveMessage(messageId, user.id);
+  }
+
+  @Delete('saved-messages/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Unsave a message' })
+  unsaveMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.messagesService.unsaveMessage(user.id, id);
+  }
+
+  // ──── Send Scheduled Now ────
+
+  @Post('messages/:id/send-now')
+  @ApiOperation({ summary: 'Send a scheduled message immediately' })
+  sendNow(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.messagesService.sendScheduledNow(id, user.id);
+  }
+
+  // ──── Media Counts ────
+
+  @Get('chats/:chatId/media-counts')
+  @ApiOperation({ summary: 'Get media item counts by type for a chat' })
+  async getMediaCounts(
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.chatsService.checkMembership(chatId, user.id);
+    return this.messagesService.getMediaCounts(chatId);
   }
 }

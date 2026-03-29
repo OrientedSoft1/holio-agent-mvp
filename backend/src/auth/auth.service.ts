@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,14 +18,11 @@ import { Verify2faDto } from './dto/verify-2fa.dto.js';
 import { SmsService } from './sms.service.js';
 import { OtpStoreService } from './otp-store.service.js';
 
-const DEV_OVERRIDE_PHONES: Record<string, string> = {
-  '40040056': '11111',
-};
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly isDev: boolean;
+  private readonly devOverridePhones: Record<string, string>;
 
   constructor(
     @InjectRepository(User)
@@ -35,10 +33,23 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {
     this.isDev = this.config.get<string>('NODE_ENV') !== 'production';
+    this.devOverridePhones = this.parseDevPhones(
+      this.config.get<string>('DEV_OVERRIDE_PHONES', ''),
+    );
+  }
+
+  private parseDevPhones(raw: string): Record<string, string> {
+    if (!raw) return {};
+    const result: Record<string, string> = {};
+    for (const entry of raw.split(',')) {
+      const [phone, pin] = entry.split(':').map((s) => s.trim());
+      if (phone && pin) result[phone] = pin;
+    }
+    return result;
   }
 
   async sendCode(dto: SendCodeDto) {
-    if (this.isDev && DEV_OVERRIDE_PHONES[dto.phone]) {
+    if (this.isDev && this.devOverridePhones[dto.phone]) {
       this.logger.debug(`Dev override: skipping SMS for phone ${dto.phone}`);
       return { message: 'Code sent' };
     }
@@ -67,13 +78,17 @@ export class AuthService {
   }
 
   async verifyCode(dto: VerifyCodeDto) {
-    const overridePin = this.isDev ? DEV_OVERRIDE_PHONES[dto.phone] : undefined;
+    const overridePin = this.isDev
+      ? this.devOverridePhones[dto.phone]
+      : undefined;
 
     if (overridePin) {
       if (dto.code !== overridePin) {
         throw new BadRequestException('Invalid verification code.');
       }
-      this.logger.debug(`Dev override: verified phone ${dto.phone} with override PIN`);
+      this.logger.debug(
+        `Dev override: verified phone ${dto.phone} with override PIN`,
+      );
     } else {
       const phoneKey = `${dto.countryCode}${dto.phone}`;
       const stored = await this.otpStore.get(phoneKey);
@@ -190,6 +205,28 @@ export class AuthService {
     );
 
     return { accessToken };
+  }
+
+  async requestPhoneChange(userId: string, phone: string) {
+    const phoneKey = phone;
+    const code = String(Math.floor(10000 + Math.random() * 90000));
+    await this.otpStore.store(phoneKey, code);
+    await this.smsService.sendOtp(phoneKey, code);
+    return { message: 'Verification code sent to new number' };
+  }
+
+  async verifyPhoneChange(userId: string, phone: string, code: string) {
+    const stored = await this.otpStore.get(phone);
+    if (!stored || stored.code !== code) {
+      throw new BadRequestException('Invalid verification code');
+    }
+    await this.otpStore.delete(phone);
+
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    user.phone = phone;
+    await this.usersRepository.save(user);
+    return { message: 'Phone number updated' };
   }
 
   private generateTokens(user: User) {

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { X, Heart, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStoryStore } from '../../stores/storyStore'
 import { useAuthStore } from '../../stores/authStore'
+import api from '../../services/api.service'
 import type { StoryGroup } from '../../types'
 
 const STORY_DURATION = 5000
@@ -31,13 +32,12 @@ export default function StoryViewer() {
   useEffect(() => {
     if (!viewerOpen || !currentStory) return
     viewStory(currentStory.id)
-  }, [viewerOpen, currentStory?.id, viewStory])
+  }, [viewerOpen, currentStory, viewStory])
 
   useEffect(() => {
     if (!viewerOpen || !currentStory) return
     if (currentStory.mediaType === 'video') return
 
-    setProgress(0)
     const interval = setInterval(() => {
       setProgress((p) => {
         if (p >= 100) {
@@ -48,8 +48,11 @@ export default function StoryViewer() {
       })
     }, 50)
 
-    return () => clearInterval(interval)
-  }, [viewerOpen, currentStory?.id, handleNext])
+    return () => {
+      clearInterval(interval)
+      setProgress(0)
+    }
+  }, [viewerOpen, currentStory, handleNext])
 
   if (!viewerOpen || !currentGroup || !currentStory) return null
 
@@ -182,10 +185,26 @@ export default function StoryViewer() {
               type="text"
               value={reply}
               onChange={(e) => setReply(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && reply.trim()) {
+                  e.preventDefault()
+                  try {
+                    await api.post(`/stories/${currentStory.id}/reply`, { content: reply })
+                    setReply('')
+                  } catch { /* reply failed */ }
+                }
+              }}
               placeholder="Reply to story..."
               className="flex-1 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white outline-none placeholder:text-white/50 focus:border-white/40"
             />
-            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20">
+            <button
+              onClick={async () => {
+                try {
+                  await api.post(`/stories/${currentStory.id}/react`, { emoji: '❤️' })
+                } catch { /* react failed */ }
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            >
               <Heart className="h-5 w-5" />
             </button>
           </div>
