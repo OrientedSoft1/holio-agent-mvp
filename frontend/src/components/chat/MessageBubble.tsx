@@ -73,11 +73,12 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
   const handleContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }) }
   const handleContextAction = async (action: string) => {
     setContextMenu(null)
+    if (action.startsWith('react:')) { handleReact(action.slice(6)); return }
     switch (action) {
       case 'reply': if (rawMessage) setReplyTo(rawMessage); break
       case 'edit': if (rawMessage) setEditing(rawMessage); break
       case 'copy': if (message.content) await navigator.clipboard.writeText(message.content); break
-      case 'forward': break
+      case 'forward': setForwardModalOpen(true); break
       case 'pin': try { await api.patch(`/messages/${message.id}/pin`) } catch { /* ignore */ } break
       case 'delete': try { await api.delete(`/chats/${rawMessage?.chatId}/messages/${message.id}`); removeMessage(message.id) } catch { /* ignore */ } break
     }
