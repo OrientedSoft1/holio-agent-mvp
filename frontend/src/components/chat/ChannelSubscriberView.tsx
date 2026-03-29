@@ -1,9 +1,8 @@
-import { useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   ChevronLeft,
   MoreVertical,
   BellOff,
-  Bell,
   Pin,
   Eye,
   MessageSquare,
@@ -11,18 +10,28 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
+interface ChannelPost {
+  id: string
+  content: string
+  timestamp: string
+  viewCount: number
+  commentCount: number
+}
+
 interface ChannelSubscriberViewProps {
   channelName: string
   channelAvatar?: string | null
   subscriberCount: number
   isMuted?: boolean
   pinnedMessage?: string
+  posts?: ChannelPost[]
   onBack?: () => void
   onInfoClick?: () => void
   onToggleMute?: () => void
+  onLeaveComment?: (postId: string) => void
 }
 
-const MOCK_POSTS = [
+const MOCK_POSTS: ChannelPost[] = [
   {
     id: '1',
     content:
@@ -49,17 +58,31 @@ const MOCK_POSTS = [
   },
 ]
 
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
 export default function ChannelSubscriberView({
   channelName,
   channelAvatar,
   subscriberCount,
   isMuted = false,
-  pinnedMessage,
+  pinnedMessage = 'Welcome to the channel! Please read the rules before posting.',
+  posts = MOCK_POSTS,
   onBack,
   onInfoClick,
   onToggleMute,
+  onLeaveComment,
 }: ChannelSubscriberViewProps) {
+  const [pinnedExpanded, setPinnedExpanded] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
 
   const initials = channelName
     .split(' ')
@@ -70,52 +93,46 @@ export default function ChannelSubscriberView({
 
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite">
-      {/* Header */}
       <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-          )}
           <button
-            onClick={onInfoClick}
-            className="flex items-center gap-3 text-left"
+            onClick={onBack}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
           >
-            {channelAvatar ? (
-              <img
-                src={channelAvatar}
-                alt={channelName}
-                className="h-10 w-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-lavender text-sm font-semibold text-holio-text">
-                {initials}
-              </div>
-            )}
-            <div>
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          {channelAvatar ? (
+            <img
+              src={channelAvatar}
+              alt={channelName}
+              className="h-12 w-12 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-holio-orange/15 text-sm font-bold text-holio-orange">
+              {initials}
+            </div>
+          )}
+          <button onClick={onInfoClick} className="text-left">
+            <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-holio-text">
                 {channelName}
               </h3>
-              <p className="text-xs text-holio-muted">
-                {subscriberCount.toLocaleString()} subscribers
-              </p>
+              {isMuted && (
+                <BellOff className="h-3.5 w-3.5 text-holio-muted" />
+              )}
             </div>
+            <p className="text-xs text-holio-muted">
+              {formatCount(subscriberCount)} Subscribers
+            </p>
           </button>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={onToggleMute}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            aria-label={isMuted ? 'Unmute channel' : 'Mute channel'}
           >
-            {isMuted ? (
-              <BellOff className="h-5 w-5" />
-            ) : (
-              <Bell className="h-5 w-5" />
-            )}
+            <BellOff className="h-5 w-5" />
           </button>
           <button
             onClick={onInfoClick}
@@ -126,82 +143,87 @@ export default function ChannelSubscriberView({
         </div>
       </div>
 
-      {/* Pinned message */}
       {pinnedMessage && (
-        <button className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-2 text-left transition-colors hover:bg-gray-50">
-          <Pin className="h-4 w-4 flex-shrink-0 text-holio-orange" />
-          <span className="truncate text-xs text-holio-text">
-            {pinnedMessage}
-          </span>
-          <ChevronDown className="ml-auto h-4 w-4 flex-shrink-0 text-holio-muted" />
+        <button
+          onClick={() => setPinnedExpanded((v) => !v)}
+          className="flex items-start gap-2.5 border-b border-holio-orange/10 bg-holio-orange/10 px-4 py-2.5 text-left transition-colors hover:bg-holio-orange/15"
+        >
+          <Pin className="mt-0.5 h-4 w-4 flex-shrink-0 text-holio-orange" />
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-semibold text-holio-orange">
+              Pinned Message
+            </span>
+            <p
+              className={cn(
+                'mt-0.5 text-xs leading-relaxed text-holio-text',
+                !pinnedExpanded && 'line-clamp-1',
+              )}
+            >
+              {pinnedMessage}
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              'mt-0.5 h-4 w-4 flex-shrink-0 text-holio-muted transition-transform',
+              pinnedExpanded && 'rotate-180',
+            )}
+          />
         </button>
       )}
 
-      {/* Posts */}
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4"
+        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
       >
-        {MOCK_POSTS.map((post) => (
+        {posts.map((post) => (
           <div
             key={post.id}
             className="overflow-hidden rounded-xl bg-white shadow-sm"
           >
             <div className="p-4">
-              <div className="mb-2 flex items-center gap-2">
-                {channelAvatar ? (
-                  <img
-                    src={channelAvatar}
-                    alt={channelName}
-                    className="h-6 w-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-holio-lavender text-[10px] font-semibold text-holio-text">
-                    {initials}
-                  </div>
-                )}
-                <span className="text-xs font-semibold text-holio-text">
-                  {channelName}
-                </span>
-                <span className="text-[11px] text-holio-muted">
-                  {post.timestamp}
-                </span>
-              </div>
-              <p className="text-sm leading-relaxed text-holio-text">
+              <span className="text-sm font-bold text-holio-orange">
+                {channelName}
+              </span>
+              <p className="mt-2 text-sm leading-relaxed text-holio-text">
                 {post.content}
               </p>
-              <div className="mt-3 flex items-center gap-4 border-t border-gray-50 pt-3">
-                <div className="flex items-center gap-1 text-holio-muted">
-                  <Eye className="h-3.5 w-3.5" />
-                  <span className="text-xs">
-                    {post.viewCount.toLocaleString()}
+              <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 text-holio-muted">
+                    <Eye className="h-3.5 w-3.5" />
+                    <span className="text-xs">
+                      {formatCount(post.viewCount)}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-holio-muted">
+                    {post.timestamp}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-holio-muted">
+                <button
+                  onClick={() => onLeaveComment?.(post.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+                >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  <span className="text-xs">{post.commentCount}</span>
-                </div>
+                  <span className="text-xs">
+                    {post.commentCount > 0
+                      ? `${post.commentCount} comments`
+                      : 'Leave a comment'}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Bottom bar */}
-      {isMuted ? (
-        <div className="border-t border-gray-100 bg-white p-3">
-          <button
-            onClick={onToggleMute}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-holio-orange text-sm font-semibold text-white transition-colors hover:bg-holio-orange/90"
-          >
-            UNMUTE
-          </button>
-        </div>
-      ) : (
-        <div className="flex h-12 items-center justify-center border-t border-gray-100 bg-white">
-          <span className="text-xs text-holio-muted">Muted channel</span>
-        </div>
-      )}
+      <div className="flex-shrink-0 border-t border-gray-100 bg-white">
+        <button
+          onClick={onToggleMute}
+          className="w-full bg-[#FF9220] py-3 font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#FF9220]/90"
+        >
+          {isMuted ? 'UNMUTE' : 'MUTE'}
+        </button>
+      </div>
     </div>
   )
 }
