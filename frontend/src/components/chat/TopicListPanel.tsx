@@ -1,5 +1,4 @@
 import { ChevronLeft, MoreVertical, Pin, Hash, Plus } from 'lucide-react'
-import { cn } from '../../lib/utils'
 
 interface Topic {
   id: string
