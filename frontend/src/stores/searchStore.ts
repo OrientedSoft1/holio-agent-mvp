@@ -31,7 +31,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   query: '',
   results: null,
   loading: false,
-  recentSearches: JSON.parse(localStorage.getItem('recentSearches') ?? '[]'),
+  recentSearches: (() => { try { return typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('recentSearches') ?? '[]') : [] } catch { return [] } })(),
 
   inChatQuery: '',
   inChatResults: [],

@@ -16,15 +16,15 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      if (e.key === 'Escape') {
-        setShowInfoPanel(false)
-        return
-      }
-
       const isInput =
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
         (e.target instanceof HTMLElement && e.target.isContentEditable)
+
+      if (e.key === 'Escape') {
+        if (!isInput) setShowInfoPanel(false)
+        return
+      }
 
       if (isInput) return
 

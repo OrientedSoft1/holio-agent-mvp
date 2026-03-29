@@ -40,8 +40,13 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
 
   useEffect(() => {
     let stream: MediaStream | null = null
+    let cancelled = false
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => {
+      if (cancelled) {
+        s.getTracks().forEach((t) => t.stop())
+        return
+      }
       stream = s
       const recorder = new MediaRecorder(s)
       recorderRef.current = recorder
@@ -54,11 +59,15 @@ export default function VoiceRecorder({ onSend, onCancel }: VoiceRecorderProps) 
       recorder.start()
       startTimers()
     }).catch(() => {
-      onCancel()
+      if (!cancelled) onCancel()
     })
 
     return () => {
+      cancelled = true
       stopTimers()
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.stop()
+      }
       if (stream) stream.getTracks().forEach((t) => t.stop())
     }
   }, [onCancel, startTimers, stopTimers])
