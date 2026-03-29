@@ -339,6 +339,20 @@ export class ChatsService {
     return chat;
   }
 
+  async setSelfDestructTimer(
+    chatId: string,
+    userId: string,
+    timer: number,
+  ): Promise<Chat> {
+    const chat = await this.chatRepo.findOne({ where: { id: chatId } });
+    if (!chat) throw new NotFoundException('Chat not found');
+
+    await this.checkMembership(chatId, userId);
+
+    chat.metadata = { ...chat.metadata, selfDestructTimer: timer };
+    return this.chatRepo.save(chat);
+  }
+
   private async checkChatAdminAccess(
     chatId: string,
     userId: string,

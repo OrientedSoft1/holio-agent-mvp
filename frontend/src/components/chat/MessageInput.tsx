@@ -28,6 +28,7 @@ import { cn } from '../../lib/utils'
 
 interface MessageInputProps {
   chatId: string
+  onTyping?: () => void
 }
 
 const BOT_TYPE_ICON: Record<string, typeof Bot> = {
@@ -48,7 +49,7 @@ const BOT_TYPE_COLOR: Record<string, string> = {
   custom: 'bg-holio-dark',
 }
 
-export default function MessageInput({ chatId }: MessageInputProps) {
+export default function MessageInput({ chatId, onTyping }: MessageInputProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [recording, setRecording] = useState(false)
