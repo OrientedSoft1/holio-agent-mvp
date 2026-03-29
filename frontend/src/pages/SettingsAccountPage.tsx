@@ -1,14 +1,14 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronRight,
-  CircleDot,
+  BookOpen,
   Wallet,
   Phone,
-  Monitor,
+  Smartphone,
   FolderOpen,
   Bell,
-  Lock,
+  Shield,
   Database,
   Palette,
   QrCode,
@@ -17,23 +17,78 @@ import {
 import { useAuthStore } from '../stores/authStore'
 import { cn } from '../lib/utils'
 
-const QUICK_LINKS = [
-  { icon: CircleDot, label: 'My Stories' },
-  { icon: Wallet, label: 'Holio Credits', value: '0.00' },
+interface QuickLink {
+  icon: typeof Phone
+  label: string
+  value?: string
+  route: string
+}
+
+interface SettingsItem {
+  icon: typeof Phone
+  label: string
+  route: string
+}
+
+const QUICK_LINKS: QuickLink[] = [
+  { icon: BookOpen, label: 'My Stories', route: '/stories' },
+  { icon: Wallet, label: 'Wallet', value: '0.00', route: '/wallet' },
 ]
 
-const SETTINGS_MENU = [
-  { icon: Phone, label: 'Recent Calls' },
-  { icon: Monitor, label: 'Devices' },
-  { icon: FolderOpen, label: 'Chat Folders' },
-  'separator' as const,
-  { icon: Bell, label: 'Notifications and Sounds' },
-  { icon: Lock, label: 'Privacy and Security' },
-  { icon: Database, label: 'Data and Storage' },
-  { icon: Palette, label: 'Appearance' },
+const SETTINGS_GROUP_1: SettingsItem[] = [
+  { icon: Phone, label: 'Recent Calls', route: '/calls' },
+  { icon: Smartphone, label: 'Devices', route: '/settings/devices' },
+  { icon: FolderOpen, label: 'Chat Folders', route: '/settings/folders' },
 ]
 
-type MenuItem = { icon: typeof Phone; label: string } | 'separator'
+const SETTINGS_GROUP_2: SettingsItem[] = [
+  { icon: Bell, label: 'Notifications and Sounds', route: '/settings/notifications' },
+  { icon: Shield, label: 'Privacy and Security', route: '/settings/privacy' },
+  { icon: Database, label: 'Data and Storage', route: '/settings/data-storage' },
+  { icon: Palette, label: 'Appearance', route: '/settings/chat-appearance' },
+]
+
+function SettingsRow({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: typeof Phone
+  label: string
+  value?: string
+  onClick?: () => void
+}) {
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-3 px-4 py-3">
+      <Icon className="h-5 w-5 text-holio-muted" />
+      <span className="flex-1 text-left text-sm text-holio-text">{label}</span>
+      {value && (
+        <span className="text-sm font-medium text-holio-orange">{value}</span>
+      )}
+      <ChevronRight className="h-4 w-4 text-holio-muted" />
+    </button>
+  )
+}
+
+function SettingsGroup({ items }: { items: SettingsItem[] }) {
+  const navigate = useNavigate()
+
+  return (
+    <div className="mx-4 rounded-2xl bg-white">
+      {items.map((item, i) => (
+        <div key={item.label}>
+          {i > 0 && <div className="mx-4 border-t border-gray-100" />}
+          <SettingsRow
+            icon={item.icon}
+            label={item.label}
+            onClick={() => navigate(item.route)}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function SettingsAccountPage() {
   const navigate = useNavigate()
@@ -47,7 +102,7 @@ export default function SettingsAccountPage() {
     <div className="flex h-screen flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-lg font-medium text-holio-text">Account</h1>
+        <h1 className="text-lg font-semibold text-holio-text">Account</h1>
         <button
           onClick={() => navigate('/edit-profile')}
           className="text-sm font-medium text-holio-orange"
@@ -56,7 +111,7 @@ export default function SettingsAccountPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-8">
         {/* Profile card */}
         <div className="mx-4 rounded-2xl bg-white p-4">
           <div className="flex items-center gap-3">
@@ -89,7 +144,7 @@ export default function SettingsAccountPage() {
         {/* Other Accounts */}
         <div className="mx-4 mt-3 rounded-2xl bg-white">
           <button
-            onClick={() => setOtherAccountsOpen(!otherAccountsOpen)}
+            onClick={() => setOtherAccountsOpen((v) => !v)}
             className="flex w-full items-center justify-between px-4 py-3"
           >
             <span className="text-sm font-medium text-holio-text">
@@ -113,58 +168,28 @@ export default function SettingsAccountPage() {
 
         {/* Quick links */}
         <div className="mx-4 mt-3 rounded-2xl bg-white">
-          {QUICK_LINKS.map((item, i) => {
-            const Icon = item.icon
-            return (
-              <div key={item.label}>
-                {i > 0 && <div className="mx-4 border-t border-gray-100" />}
-                <button className="flex w-full items-center gap-3 px-4 py-3">
-                  <Icon className="h-5 w-5 text-holio-muted" />
-                  <span className="flex-1 text-left text-sm text-holio-text">
-                    {item.label}
-                  </span>
-                  {item.value && (
-                    <span className="text-sm font-medium text-holio-orange">
-                      {item.value}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )
-          })}
+          {QUICK_LINKS.map((item, i) => (
+            <div key={item.label}>
+              {i > 0 && <div className="mx-4 border-t border-gray-100" />}
+              <SettingsRow
+                icon={item.icon}
+                label={item.label}
+                value={item.value}
+                onClick={() => navigate(item.route)}
+              />
+            </div>
+          ))}
         </div>
 
-        {/* Settings section label */}
-        <p className="ml-4 mt-5 mb-1.5 text-xs font-semibold uppercase tracking-wider text-holio-muted">
-          Settings
-        </p>
-
-        {/* Settings menu */}
-        <div className="mx-4 rounded-2xl bg-white">
-          {(SETTINGS_MENU as MenuItem[]).map((item, i) => {
-            if (item === 'separator') {
-              return (
-                <div key={`sep-${i}`} className="mx-4 border-t border-gray-100" />
-              )
-            }
-            const Icon = item.icon
-            const prev = SETTINGS_MENU[i - 1]
-            const showTopDivider = i > 0 && prev !== 'separator'
-            return (
-              <div key={item.label}>
-                {showTopDivider && (
-                  <div className="mx-4 border-t border-gray-100" />
-                )}
-                <button className="flex w-full items-center gap-3 px-4 py-3">
-                  <Icon className="h-5 w-5 text-holio-muted" />
-                  <span className="text-sm text-holio-text">{item.label}</span>
-                </button>
-              </div>
-            )
-          })}
+        {/* Settings group 1: Calls, Devices, Folders */}
+        <div className="mt-6">
+          <SettingsGroup items={SETTINGS_GROUP_1} />
         </div>
 
-        <div className="h-8" />
+        {/* Settings group 2: Notifications, Privacy, Data, Appearance */}
+        <div className="mt-3">
+          <SettingsGroup items={SETTINGS_GROUP_2} />
+        </div>
       </div>
     </div>
   )
