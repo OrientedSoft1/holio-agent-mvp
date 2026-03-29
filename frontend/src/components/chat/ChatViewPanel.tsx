@@ -6,6 +6,7 @@ import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
 import InChatSearch from '../search/InChatSearch'
 import TypingIndicator from './TypingIndicator'
+import SecretChatInvitation from './SecretChatInvitation'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -76,6 +77,19 @@ export default function ChatViewPanel() {
   const statusText = isDM
     ? (peerOnline ? 'online' : (peerLastSeen ? `last seen ${new Date(peerLastSeen).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}` : ''))
     : (isGroupLike ? `${chatMembers?.length ?? 0} members` : '')
+
+  const isSecretChat = activeChat.type === 'secret'
+
+  if (isSecretChat && messages.length === 0) {
+    return (
+      <SecretChatInvitation
+        userName={displayName}
+        userAvatar={activeChat.avatarUrl}
+        onAccept={() => {}}
+        onBack={() => useChatStore.getState().setActiveChat(null)}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite">

@@ -15,7 +15,7 @@ interface ChatState {
 
   fetchChats: (companyId?: string) => Promise<void>
   fetchMessages: (chatId: string, page?: number) => Promise<void>
-  setActiveChat: (chat: Chat) => void
+  setActiveChat: (chat: Chat | null) => void
   addMessage: (message: Message) => void
   updateMessage: (messageId: string, updates: Partial<Message>) => void
   removeMessage: (messageId: string) => void
