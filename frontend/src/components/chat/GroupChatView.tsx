@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, Phone, MoreVertical } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import GroupChatHeader from './GroupChatHeader'
+import GroupInfoPanel from './GroupInfoPanel'
 import MessageBubble from './MessageBubble'
 import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
@@ -10,12 +11,25 @@ import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getSocket } from '../../services/socket.service'
 import { cn } from '../../lib/utils'
+import type { ChatMember } from '../../types'
 
 interface GroupChatViewProps {
   chatId: string
 }
 
-const DEMO_TOPICS = ['General', 'Design', 'Development', 'Marketing', 'Random']
+const SENDER_COLORS = [
+  '#E95420', '#8E44AD', '#2980B9', '#27AE60', '#D35400',
+  '#C0392B', '#16A085', '#F39C12', '#7F8C8D', '#2C3E50',
+  '#1ABC9C', '#9B59B6', '#3498DB', '#E74C3C', '#2ECC71',
+]
+
+function getSenderColor(senderId: string): string {
+  let hash = 0
+  for (let i = 0; i < senderId.length; i++) {
+    hash = senderId.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length]
+}
 
 function groupMessagesByDate(messages: { createdAt: string }[]) {
   const groups: { label: string; indices: number[] }[] = []
@@ -46,21 +60,23 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
   const activeChat = useChatStore((s) => s.activeChat)
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
+  const fetchMessages = useChatStore((s) => s.fetchMessages)
   const currentUserId = useAuthStore((s) => s.user?.id)
   const showInChatSearch = useUiStore((s) => s.showInChatSearch)
   const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
-  const [activeTopic, setActiveTopic] = useState<string | null>(null)
+  const [showInfoPanel, setShowInfoPanel] = useState(false)
 
-  const hasTopics = activeChat?.type === 'group' && (activeChat as any).topics?.length > 0
-  const topics: string[] = hasTopics ? (activeChat as any).topics : DEMO_TOPICS
+  useEffect(() => {
+    if (chatId) fetchMessages(chatId)
+  }, [chatId, fetchMessages])
 
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages, activeTopic])
+  }, [messages])
 
   useEffect(() => {
     if (!activeChat || !messages.length || !currentUserId) return
@@ -75,162 +91,149 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
     }
   }, [activeChat, messages, currentUserId])
 
+  const handleToggleInfo = useCallback(() => {
+    setShowInfoPanel((prev) => !prev)
+  }, [])
+
   if (!activeChat) return null
 
   const displayName = activeChat.name ?? 'Group'
-  const initials = displayName
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-  const memberCount = (activeChat as any).members?.length ?? 0
+  const chatMembers = ((activeChat as Record<string, unknown>).members ?? []) as ChatMember[]
+  const memberCount = chatMembers.length || 55
+  const onlineCount = Math.min(Math.floor(memberCount * 0.22), memberCount)
 
-  const filteredMessages = activeTopic
-    ? messages.filter((msg) => (msg.metadata as any)?.topic === activeTopic)
-    : messages
-
-  const dateGroups = groupMessagesByDate(filteredMessages)
+  const dateGroups = groupMessagesByDate(messages)
 
   const isSameSenderAsPrev = (idx: number) => {
     if (idx === 0) return false
-    return filteredMessages[idx].senderId === filteredMessages[idx - 1].senderId
+    return messages[idx].senderId === messages[idx - 1].senderId
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-holio-offwhite">
-      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
-        <div className="flex items-center gap-3">
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="relative">
-            {activeChat.avatarUrl ? (
-              <img
-                src={activeChat.avatarUrl}
-                alt={displayName}
-                className="h-10 w-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">
-                {initials}
-              </div>
-            )}
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-holio-text">{displayName}</h3>
-            <p className="text-xs text-holio-muted">{memberCount} members</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          {[Phone, MoreVertical].map((Icon, i) => (
-            <button
-              key={i}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <Icon className="h-5 w-5" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {hasTopics && (
-        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 bg-white px-4 py-2 scrollbar-hide">
-          <button
-            onClick={() => setActiveTopic(null)}
-            className={cn(
-              'flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-              activeTopic === null
-                ? 'bg-holio-orange text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-            )}
-          >
-            All
-          </button>
-          {topics.map((topic) => (
-            <button
-              key={topic}
-              onClick={() => setActiveTopic(topic)}
-              className={cn(
-                'flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                activeTopic === topic
-                  ? 'bg-holio-orange text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-              )}
-            >
-              {topic}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {showInChatSearch && (
-        <InChatSearch
-          chatId={activeChat.id}
-          open={showInChatSearch}
-          onClose={() => setShowInChatSearch(false)}
+    <div className="relative flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col bg-holio-offwhite">
+        <GroupChatHeader
+          name={displayName}
+          avatarUrl={activeChat.avatarUrl}
+          avatarColor="#8b5cf6"
+          memberCount={memberCount}
+          onlineCount={onlineCount}
+          onBack={() => useChatStore.getState().setActiveChat(null!)}
+          onInfoClick={handleToggleInfo}
+          onMenuClick={handleToggleInfo}
         />
-      )}
 
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto px-6 py-4">
-        {messagesLoading && (
-          <div className="flex justify-center py-4">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
-          </div>
+        {showInChatSearch && (
+          <InChatSearch
+            chatId={activeChat.id}
+            open={showInChatSearch}
+            onClose={() => setShowInChatSearch(false)}
+          />
         )}
 
-        {dateGroups.map((group) => (
-          <div key={group.label}>
-            <DateSeparator label={group.label} />
-            {group.indices.map((idx) => {
-              const msg = filteredMessages[idx]
-              const isMine = msg.senderId === currentUserId
-              const sameSender = isSameSenderAsPrev(idx)
-              const senderInitial = msg.sender?.firstName?.[0]?.toUpperCase() ?? '?'
+        <div
+          ref={scrollRef}
+          className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-lavender/20 to-holio-lavender/10 px-4 py-4"
+        >
+          {messagesLoading && (
+            <div className="flex justify-center py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+            </div>
+          )}
 
-              return (
-                <div key={msg.id} className={cn('flex gap-2', isMine ? 'justify-end' : 'justify-start')}>
-                  {!isMine && (
-                    <div className="w-6 flex-shrink-0">
-                      {!sameSender && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-holio-lavender/30 text-[10px] font-semibold text-holio-text">
-                          {senderInitial}
-                        </div>
-                      )}
+          {activeChat.unreadCount > 0 && (
+            <div className="flex items-center justify-center py-2">
+              <span className="rounded-full bg-holio-orange px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                {activeChat.unreadCount} unread messages
+              </span>
+            </div>
+          )}
+
+          {dateGroups.map((group) => (
+            <div key={group.label}>
+              <DateSeparator label={group.label} />
+              {group.indices.map((idx) => {
+                const msg = messages[idx]
+                const isMine = msg.senderId === currentUserId
+                const sameSender = isSameSenderAsPrev(idx)
+                const senderColor = !isMine ? getSenderColor(msg.senderId) : undefined
+                const senderInitial = msg.sender?.firstName?.[0]?.toUpperCase() ?? '?'
+                const senderFullName = msg.sender
+                  ? `${msg.sender.firstName}${msg.sender.lastName ? ` ${msg.sender.lastName}` : ''}`
+                  : undefined
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={cn('flex gap-2', isMine ? 'justify-end' : 'justify-start')}
+                  >
+                    {!isMine && (
+                      <div className="w-8 flex-shrink-0 self-end">
+                        {!sameSender && (
+                          <div
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
+                            style={{ backgroundColor: senderColor }}
+                          >
+                            {senderInitial}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="min-w-0 max-w-[70%]">
+                      <MessageBubble
+                        rawMessage={msg}
+                        message={{
+                          id: msg.id,
+                          content: msg.content,
+                          timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }),
+                          isMine,
+                          senderName:
+                            !isMine && !sameSender ? senderFullName : undefined,
+                          isRead: !!((msg as Record<string, unknown>).isRead) || !!((msg as Record<string, unknown>).readAt),
+                          isGroup: true,
+                          type: msg.type,
+                          fileUrl: msg.fileUrl,
+                          metadata: msg.metadata,
+                          reactions: msg.reactions,
+                          scheduledAt: msg.scheduledAt,
+                          currentUserId,
+                        }}
+                      />
                     </div>
-                  )}
-                  <div className="min-w-0 max-w-[70%]">
-                    <MessageBubble
-                      rawMessage={msg}
-                      message={{
-                        id: msg.id,
-                        content: msg.content,
-                        timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }),
-                        isMine,
-                        senderName: !isMine && !sameSender ? msg.sender?.firstName : undefined,
-                        isRead: !!(msg as any).isRead || !!(msg as any).readAt,
-                        isGroup: true,
-                        type: msg.type,
-                        fileUrl: msg.fileUrl,
-                        metadata: msg.metadata,
-                        reactions: msg.reactions,
-                        scheduledAt: msg.scheduledAt,
-                        currentUserId,
-                      }}
-                    />
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        ))}
+                )
+              })}
+            </div>
+          ))}
+        </div>
+
+        <TypingIndicator chatId={activeChat.id} />
+        <MessageInput chatId={activeChat.id} />
       </div>
 
-      <TypingIndicator chatId={activeChat.id} />
-      <MessageInput chatId={activeChat.id} />
+      <div
+        className={cn(
+          'absolute inset-y-0 right-0 z-20 w-[340px] transform border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 ease-in-out',
+          showInfoPanel ? 'translate-x-0' : 'translate-x-full',
+        )}
+      >
+        <GroupInfoPanel
+          chat={activeChat}
+          members={chatMembers}
+          onClose={() => setShowInfoPanel(false)}
+          onAddMembers={() => {}}
+        />
+      </div>
+
+      {showInfoPanel && (
+        <div
+          className="absolute inset-0 z-10 bg-black/10 md:hidden"
+          onClick={() => setShowInfoPanel(false)}
+        />
+      )}
     </div>
   )
 }
