@@ -205,6 +205,22 @@ export interface StoryView {
   viewer: User
 }
 
+export interface Tag {
+  id: string
+  name: string
+  emoji: string
+  color: 'lavender' | 'sage'
+  createdAt: string
+}
+
+export interface TaggedMessage {
+  id: string
+  tagId: string
+  messageId: string
+  message: Message
+  taggedAt: string
+}
+
 export interface SearchResults {
   chats: Chat[]
   users: User[]

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { Reply, Pencil, Trash2, Forward, Pin, PinOff, Copy } from 'lucide-react'
+import { Reply, Pencil, Trash2, Forward, Pin, PinOff, Copy, Hash } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 export interface ContextMenuAction { id: string; label: string; icon: typeof Reply; danger?: boolean; hidden?: boolean }
@@ -18,6 +18,7 @@ export default function MessageContextMenu({ isMine, isPinned, onAction, onClose
   const actions: ContextMenuAction[] = [
     { id: 'reply', label: 'Reply', icon: Reply }, { id: 'copy', label: 'Copy', icon: Copy },
     { id: 'forward', label: 'Forward', icon: Forward },
+    { id: 'tag', label: 'Tag', icon: Hash },
     { id: 'pin', label: isPinned ? 'Unpin' : 'Pin', icon: isPinned ? PinOff : Pin },
     { id: 'edit', label: 'Edit', icon: Pencil, hidden: !isMine },
     { id: 'delete', label: 'Delete', icon: Trash2, danger: true, hidden: !isMine },

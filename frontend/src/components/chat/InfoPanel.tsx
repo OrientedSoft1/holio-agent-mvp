@@ -29,8 +29,10 @@ import {
 import { useUiStore } from '../../stores/uiStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBotStore } from '../../stores/botStore'
+import { useTagStore } from '../../stores/tagStore'
 import { cn } from '../../lib/utils'
 import ChannelAdminPanel from '../groups/ChannelAdminPanel'
+import TagDetailPanel from './TagDetailPanel'
 import api from '../../services/api.service'
 import type { Bot as BotType } from '../../types'
 
@@ -94,6 +96,9 @@ export default function InfoPanel() {
   const companyBots = useBotStore((s) => s.companyBots)
   const inviteBotToChat = useBotStore((s) => s.inviteBotToChat)
   const removeBotFromChat = useBotStore((s) => s.removeBotFromChat)
+  const tags = useTagStore((s) => s.tags)
+  const activeTagId = useTagStore((s) => s.activeTagId)
+  const setActiveTag = useTagStore((s) => s.setActiveTag)
   const [showBotPicker, setShowBotPicker] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [isMuted, setIsMuted] = useState(activeChat?.muted ?? false)
@@ -151,6 +156,14 @@ export default function InfoPanel() {
       <ChannelAdminPanel
         chat={activeChat}
         onClose={() => setShowAdminPanel(false)}
+      />
+    )
+  }
+
+  if (activeTagId) {
+    return (
+      <TagDetailPanel
+        onClose={() => setActiveTag(null)}
       />
     )
   }
@@ -511,6 +524,32 @@ export default function InfoPanel() {
             <p className="py-2 text-center text-xs text-holio-muted">
               No bots in this chat
             </p>
+          )}
+        </div>
+
+        {/* Tags */}
+        <div className="border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
+          <h5 className="mb-2 text-xs font-semibold tracking-wide text-holio-muted uppercase">
+            Tags
+          </h5>
+          {tags.length === 0 ? (
+            <p className="py-2 text-center text-xs text-holio-muted">No tags yet</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() => { setActiveTag(tag.id); setShowInfoPanel(true) }}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-holio-text transition-colors hover:opacity-80',
+                    tag.color === 'lavender' ? 'bg-holio-lavender/30' : 'bg-holio-sage/30',
+                  )}
+                >
+                  <span>{tag.emoji}</span>
+                  {tag.name}
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

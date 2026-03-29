@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils'
 import type { Message, MessageMetadata, GroupReadReceipt, MessageReaction } from '../../types'
 import api from '../../services/api.service'
 import { useChatStore } from '../../stores/chatStore'
+import { useTagStore } from '../../stores/tagStore'
 import ImageMessage from '../messages/ImageMessage'
 import ImageViewer from '../messages/ImageViewer'
 import VoiceMessage from '../messages/VoiceMessage'
@@ -16,6 +17,7 @@ import PollMessage from '../messages/PollMessage'
 import ReactionBar from '../messages/ReactionBar'
 import ReactionPicker from '../messages/ReactionPicker'
 import MessageContextMenu from './MessageContextMenu'
+import TagSelector from './TagSelector'
 
 export interface MessageData {
   id: string; content: string; timestamp: string; isMine: boolean; senderName?: string
@@ -66,9 +68,11 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactions, setReactions] = useState<MessageReaction[]>(message.reactions ?? [])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [showTagSelector, setShowTagSelector] = useState(false)
   const setReplyTo = useChatStore((s) => s.setReplyTo)
   const setEditing = useChatStore((s) => s.setEditing)
   const removeMessage = useChatStore((s) => s.removeMessage)
+  const messageTags = useTagStore((s) => s.getMessageTags(message.id))
 
   const handleContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }) }
   const handleContextAction = async (action: string) => {
@@ -80,6 +84,7 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
       case 'forward': break
       case 'pin': try { await api.patch(`/messages/${message.id}/pin`) } catch { /* ignore */ } break
       case 'delete': try { await api.delete(`/chats/${rawMessage?.chatId}/messages/${message.id}`); removeMessage(message.id) } catch { /* ignore */ } break
+      case 'tag': setShowTagSelector(true); break
     }
   }
 
@@ -176,9 +181,26 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
           </>)}
         </div>
         <ReactionBar reactions={reactions} onToggle={handleToggleReaction} onAdd={() => setShowReactionPicker(true)} />
+        {messageTags.length > 0 && (
+          <div className={cn('mt-1 flex flex-wrap gap-1', message.isMine ? 'justify-end' : 'justify-start')}>
+            {messageTags.map((tag) => (
+              <span
+                key={tag.id}
+                className={cn(
+                  'inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium text-holio-text',
+                  tag.color === 'lavender' ? 'bg-holio-lavender/40' : 'bg-holio-sage/40',
+                )}
+              >
+                <span>{tag.emoji}</span>
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
     {viewerImages && <ImageViewer images={viewerImages} initialIndex={viewerIndex} onClose={() => setViewerImages(null)} />}
     {contextMenu && <MessageContextMenu x={contextMenu.x} y={contextMenu.y} isMine={message.isMine} onAction={handleContextAction} onClose={() => setContextMenu(null)} />}
+    {showTagSelector && <TagSelector messageId={message.id} onClose={() => setShowTagSelector(false)} />}
   </>)
 }
