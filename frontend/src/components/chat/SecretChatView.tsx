@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   ArrowLeft,
-  ShieldCheck,
   Lock,
   Phone,
   MoreVertical,
@@ -136,6 +135,8 @@ export default function SecretChatView({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
+
+          {/* Avatar with green lock badge overlay */}
           <div className="relative">
             {peerAvatar ? (
               <img
@@ -148,44 +149,51 @@ export default function SecretChatView({
                 {initials}
               </div>
             )}
-            {isOnline && (
-              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
-            )}
+            <div className="absolute -right-0.5 -bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#C6D5BA]">
+              <Lock className="h-2.5 w-2.5 text-white" />
+            </div>
           </div>
+
+          {/* Name with inline lock icon */}
           <div>
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-holio-sage" />
-              <h3 className="text-sm font-semibold text-holio-sage">
+              <Lock className="h-3.5 w-3.5 text-[#C6D5BA]" />
+              <h3 className="text-sm font-semibold text-holio-text">
                 {peerName}
               </h3>
             </div>
             {statusText && (
-              <p className="text-xs text-holio-muted">{statusText}</p>
+              <p className="text-xs text-holio-muted">
+                {statusText === 'online' ? (
+                  <span className="text-green-500">online</span>
+                ) : (
+                  statusText
+                )}
+              </p>
             )}
           </div>
         </div>
+
         <div className="flex items-center gap-1">
-          {[Phone, MoreVertical].map((Icon, i) => (
-            <button
-              key={i}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <Icon className="h-5 w-5" />
-            </button>
-          ))}
+          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+            <Phone className="h-5 w-5" />
+          </button>
+          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+            <MoreVertical className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
-      {/* Dismissible encryption banner */}
+      {/* Encryption banner */}
       {showBanner && (
-        <div className="flex items-center justify-center gap-1.5 bg-holio-sage/20 py-2">
-          <Lock className="h-3.5 w-3.5 text-holio-sage" />
-          <span className="text-xs text-holio-sage">
+        <div className="flex items-center justify-center gap-2 bg-[#C6D5BA]/20 px-4 py-2">
+          <Lock className="h-3.5 w-3.5 text-[#C6D5BA]" />
+          <span className="text-xs font-medium text-[#6B8C5E]">
             Messages are end-to-end encrypted
           </span>
           <button
             onClick={() => setShowBanner(false)}
-            className="ml-2 rounded-full p-0.5 text-holio-sage/60 transition-colors hover:text-holio-sage"
+            className="ml-1 rounded-full p-0.5 text-[#C6D5BA] transition-colors hover:text-[#6B8C5E]"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -200,10 +208,10 @@ export default function SecretChatView({
         />
       )}
 
-      {/* Messages area with lavender gradient */}
+      {/* Messages area — lavender-tinted background */}
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-lavender/20 to-holio-lavender/10 px-4 py-4"
+        className="flex flex-1 flex-col gap-1 overflow-y-auto bg-[#F0EEFF] px-4 py-4"
       >
         {messagesLoading && (
           <div className="flex justify-center py-4">
@@ -251,11 +259,11 @@ export default function SecretChatView({
 
       {/* Input area with self-destruct timer */}
       <div className="flex items-center gap-0 bg-white">
-        <div className="relative">
+        <div className="relative ml-2">
           <button
             onClick={() => setShowTimerMenu(!showTimerMenu)}
             className={cn(
-              'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-50 ml-2',
+              'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-50',
               selfDestructTime > 0
                 ? 'text-holio-orange'
                 : 'text-holio-muted hover:text-holio-text',
@@ -273,6 +281,7 @@ export default function SecretChatView({
               </span>
             )}
           </button>
+
           {showTimerMenu && (
             <>
               <div
@@ -307,6 +316,7 @@ export default function SecretChatView({
             </>
           )}
         </div>
+
         <div className="min-w-0 flex-1">
           <MessageInput chatId={chatId} />
         </div>
