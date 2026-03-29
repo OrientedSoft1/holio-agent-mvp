@@ -6,6 +6,7 @@ import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
 import InChatSearch from '../search/InChatSearch'
 import TypingIndicator from './TypingIndicator'
+import SecretChatInvitation from './SecretChatInvitation'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -74,14 +75,27 @@ export default function ChatViewPanel() {
   const isDM = activeChat.type === 'private'
   const isOnline = isDM ? peerOnline : false
   const statusText = isDM
-    ? (peerOnline ? 'online' : (peerLastSeen ? `last seen ${new Date(peerLastSeen).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}` : ''))
+    ? (peerOnline ? 'online' : (peerLastSeen ? `last seen ${new Date(peerLastSeen).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}` : 'last seen recently'))
     : (isGroupLike ? `${chatMembers?.length ?? 0} members` : '')
 
+  const isSecretChat = activeChat.type === 'secret'
+
+  if (isSecretChat && messages.length === 0) {
+    return (
+      <SecretChatInvitation
+        userName={displayName}
+        userAvatar={activeChat.avatarUrl}
+        onAccept={() => {}}
+        onBack={() => useChatStore.getState().setActiveChat(null)}
+      />
+    )
+  }
+
   return (
-    <div className="flex flex-1 flex-col bg-holio-offwhite">
-      <ChatHeader name={displayName} avatarUrl={activeChat.avatarUrl} initials={initials} avatarColor={color} status={statusText} isOnline={isOnline} />
+    <div className="flex flex-1 flex-col bg-white">
+      <ChatHeader name={displayName} avatarUrl={activeChat.avatarUrl} initials={initials} avatarColor={color} status={statusText} isOnline={isOnline} userId={otherUserId} chatId={activeChat.id} />
       {showInChatSearch && <InChatSearch chatId={activeChat.id} open={showInChatSearch} onClose={() => setShowInChatSearch(false)} />}
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-lavender/20 to-holio-lavender/10 px-4 py-4">
+      <div ref={scrollRef} className="flex flex-1 flex-col gap-0.5 overflow-y-auto bg-[#F5F3FF] px-4 py-4">
         {messagesLoading && (<div className="flex justify-center py-4"><div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" /></div>)}
         {dateGroups.map((group) => (<div key={group.label}><DateSeparator label={group.label} />
           {group.indices.map((idx) => { const msg = messages[idx]; return (<MessageBubble key={msg.id} rawMessage={msg} message={{ id: msg.id, content: msg.content, timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMine: msg.senderId === currentUserId, senderName: msg.sender?.firstName, isRead: !!(msg as any).isRead || !!(msg as any).readAt, isEdited: !!(msg as any).isEdited, isGroup: isGroupLike, type: msg.type, fileUrl: msg.fileUrl, metadata: msg.metadata, reactions: msg.reactions, scheduledAt: msg.scheduledAt, currentUserId }} />) })}
