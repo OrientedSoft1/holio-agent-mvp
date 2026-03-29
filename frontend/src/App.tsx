@@ -10,6 +10,7 @@ import ChatPage from './pages/ChatPage'
 import BotsPage from './pages/BotsPage'
 import SettingsPage from './pages/SettingsPage'
 import EditProfilePage from './pages/EditProfilePage'
+import StoryPage from './pages/StoryPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -77,6 +78,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <EditProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/story"
+          element={
+            <ProtectedRoute>
+              <StoryPage />
             </ProtectedRoute>
           }
         />
