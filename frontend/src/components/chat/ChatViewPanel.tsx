@@ -58,7 +58,7 @@ export default function ChatViewPanel() {
   }, [activeChat, messages, currentUserId])
 
   if (!activeChat) {
-    return (<div className="flex flex-1 flex-col items-center justify-center bg-holio-offwhite">
+    return (<div className="flex flex-1 flex-col items-center justify-center bg-white">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-holio-lavender/30"><MessageSquare className="h-10 w-10 text-holio-lavender" /></div>
       <h3 className="mt-4 text-lg font-semibold text-holio-text">Select a chat to start messaging</h3>
       <p className="mt-1 text-sm text-holio-muted">Choose a conversation from the list</p>

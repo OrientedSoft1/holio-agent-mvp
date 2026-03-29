@@ -416,9 +416,9 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           value={text}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder="Write a message... (type @ to mention a bot)"
+          placeholder="Message"
           rows={1}
-          className="w-full resize-none rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-holio-text outline-none placeholder:text-holio-muted focus:ring-2 focus:ring-holio-lavender/50 dark:bg-[#1A2A2D] dark:text-white"
+          className="w-full resize-none rounded-2xl bg-gray-50 px-4 py-2.5 text-sm text-holio-text outline-none placeholder:text-[#8E8E93] focus:ring-2 focus:ring-holio-lavender/50 dark:bg-[#1A2A2D] dark:text-white"
           style={{ maxHeight: 120 }}
         />
       </div>

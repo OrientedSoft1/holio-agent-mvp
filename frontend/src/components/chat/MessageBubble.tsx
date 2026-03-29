@@ -22,6 +22,7 @@ export interface MessageData {
   senderType?: 'user' | 'bot' | 'system'; isRead: boolean; isGroup: boolean; readCount?: number
   type: Message['type']; fileUrl?: string | null; metadata?: MessageMetadata | null
   reactions?: MessageReaction[]; scheduledAt?: string | null; currentUserId?: string
+  isEdited?: boolean
 }
 
 interface MessageBubbleProps { message: MessageData; rawMessage?: Message }
@@ -36,7 +37,7 @@ function GroupReadPopup({ messageId, onClose }: { messageId: string; onClose: ()
   useState(() => { fetch() })
   return (
     <div className="absolute right-0 bottom-6 z-50 w-48 rounded-lg border border-gray-100 bg-white p-2 shadow-lg">
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold text-holio-text">Read by</span>
         <button onClick={onClose} className="rounded-full p-0.5 text-holio-muted hover:text-holio-text"><X className="h-3 w-3" /></button>
       </div>
@@ -53,8 +54,8 @@ function GroupReadPopup({ messageId, onClose }: { messageId: string; onClose: ()
 
 function BubbleTail({ isMine }: { isMine: boolean }) {
   return (
-    <svg className={cn('absolute bottom-0 h-3 w-3', isMine ? '-right-1.5' : '-left-1.5')} viewBox="0 0 12 12">
-      <path d={isMine ? 'M0 0 L0 12 L12 12 Q4 12 0 0Z' : 'M12 0 L12 12 L0 12 Q8 12 12 0Z'} fill={isMine ? '#C6D5BA' : '#ffffff'} />
+    <svg className={cn('absolute bottom-0 h-[14px] w-[10px]', isMine ? '-right-[9px]' : '-left-[9px]')} viewBox="0 0 10 14" preserveAspectRatio="none">
+      <path {isMine ? "M0 0 C0 7 4 12 10 14 L0 14Z" : "M10 0 C10 7 6 12 0 14 L10 14Z"} fill={isMine ? '#C6D5BA' : '#ffffff'} />
     </svg>
   )
 }
@@ -133,7 +134,7 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
     }
   }
 
-  const readReceiptIcon = message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5 text-holio-orange" /> : <Check className="h-3.5 w-3.5 text-holio-muted" />)
+  const readReceiptIcon = message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5 text-[#FF9220]" /> : <Check className="h-3.5 w-3.5 text-[#8E8E93]" />)
 
   if (message.type === 'videoNote') {
     return (<>
@@ -150,18 +151,18 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
   }
 
   return (<>
-    <div className={cn('group relative mb-1 flex', message.isMine ? 'justify-end' : 'justify-start')} onContextMenu={handleContextMenu} onMouseEnter={() => setShowReactionPicker(true)} onMouseLeave={() => setShowReactionPicker(false)}>
-      <div className="relative max-w-[70%]">
+    <div className={cn('group relative mb-2 flex', message.isMine ? 'justify-end' : 'justify-start')} onContextMenu={handleContextMenu} onMouseEnter={() => setShowReactionPicker(true)} onMouseLeave={() => setShowReactionPicker(false)}>
+      <div className="relative max-w-[80%]">
         {showReactionPicker && <ReactionPicker onReact={handleReact} isMine={message.isMine} />}
-        {isScheduled && (<div className="mb-1 flex items-center gap-1 text-[11px] text-holio-muted"><Clock className="h-3 w-3" /><span>Scheduled for {new Date(message.scheduledAt!).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>)}
+        {isScheduled && (<div className="mb-2 flex items-center gap-1 text-[11px] text-holio-muted"><Clock className="h-3 w-3" /><span>Scheduled for {new Date(message.scheduledAt!).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>)}
         <div className={cn('relative', isMedia ? 'overflow-hidden rounded-2xl' : 'px-3.5 py-2',
-          message.isMine ? (isMedia ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-br-sm bg-holio-sage text-holio-text') : (isMedia ? 'rounded-2xl rounded-bl-sm' : 'rounded-2xl rounded-bl-sm bg-white text-holio-text'))}>
+          message.isMine ? (isMedia ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-br-sm bg-[#C6D5BA] text-holio-text') : (isMedia ? 'rounded-2xl rounded-bl-sm' : 'rounded-2xl rounded-bl-sm bg-white text-holio-text'))}>
           {!isMedia && <BubbleTail isMine={message.isMine} />}
           {isMedia ? (
-            <div className={cn('rounded-2xl p-1', message.isMine ? 'rounded-br-sm bg-holio-sage' : 'rounded-bl-sm bg-white')}>
+            <div className={cn('rounded-2xl p-1', message.isMine ? 'rounded-br-sm bg-[#C6D5BA]' : 'rounded-bl-sm bg-white')}>
               {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 px-2 pt-1 text-xs font-medium text-holio-orange">{message.senderName}</p>}
               {renderContent()}
-              <div className="mt-1 flex items-center justify-end gap-1 px-2 pb-1 text-holio-muted"><span className="text-[11px]">{message.timestamp}</span>{readReceiptIcon}</div>
+              <div className="mt-1 flex items-center justify-end gap-1 px-2 pb-1 text-[#8E8E93]">{message.isEdited && <span className="text-[10px] italic">edited</span>}<span className="text-[11px]">{message.timestamp}</span>{readReceiptIcon}</div>
             </div>
           ) : (<>
             {!message.isMine && message.isGroup && message.senderName && <p className="mb-0.5 text-xs font-medium text-holio-orange">{message.senderName}</p>}
