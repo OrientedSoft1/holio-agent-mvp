@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Pencil, Users, Hash } from 'lucide-react'
+import { Plus, Pencil, Lock, Users, Hash } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 interface FabAction {
@@ -11,12 +11,14 @@ interface FabAction {
 
 interface FloatingActionButtonProps {
   onNewChat?: () => void
+  onNewSecretChat?: () => void
   onNewGroup?: () => void
   onNewChannel?: () => void
 }
 
 export default function FloatingActionButton({
   onNewChat,
+  onNewSecretChat,
   onNewGroup,
   onNewChannel,
 }: FloatingActionButtonProps) {
@@ -25,6 +27,7 @@ export default function FloatingActionButton({
 
   const actions: FabAction[] = [
     { id: 'chat', icon: Pencil, label: 'New Chat', onClick: () => { onNewChat?.(); setOpen(false) } },
+    { id: 'secret', icon: Lock, label: 'Secret Chat', onClick: () => { onNewSecretChat?.(); setOpen(false) } },
     { id: 'group', icon: Users, label: 'New Group', onClick: () => { onNewGroup?.(); setOpen(false) } },
     { id: 'channel', icon: Hash, label: 'New Channel', onClick: () => { onNewChannel?.(); setOpen(false) } },
   ]

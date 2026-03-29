@@ -1,6 +1,5 @@
 import { useRef } from 'react'
 import {
-  ChevronLeft,
   MoreVertical,
   BellOff,
   Bell,
@@ -10,16 +9,10 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import type { Chat } from '../../types'
 
 interface ChannelSubscriberViewProps {
-  channelName: string
-  channelAvatar?: string | null
-  subscriberCount: number
-  isMuted?: boolean
-  pinnedMessage?: string
-  onBack?: () => void
-  onInfoClick?: () => void
-  onToggleMute?: () => void
+  chat: Chat
 }
 
 const MOCK_POSTS = [
@@ -49,17 +42,14 @@ const MOCK_POSTS = [
   },
 ]
 
-export default function ChannelSubscriberView({
-  channelName,
-  channelAvatar,
-  subscriberCount,
-  isMuted = false,
-  pinnedMessage,
-  onBack,
-  onInfoClick,
-  onToggleMute,
-}: ChannelSubscriberViewProps) {
+export default function ChannelSubscriberView({ chat }: ChannelSubscriberViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const channelName = chat.name ?? 'Channel'
+  const channelAvatar = chat.avatarUrl
+  const subscriberCount = (chat as any).members?.length ?? 0
+  const isMuted = chat.muted ?? false
+  const pinnedMessage = (chat as any).pinnedMessage as string | undefined
 
   const initials = channelName
     .split(' ')
@@ -73,16 +63,7 @@ export default function ChannelSubscriberView({
       {/* Header */}
       <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-          )}
           <button
-            onClick={onInfoClick}
             className="flex items-center gap-3 text-left"
           >
             {channelAvatar ? (
@@ -108,7 +89,6 @@ export default function ChannelSubscriberView({
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={onToggleMute}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
           >
             {isMuted ? (
@@ -118,7 +98,6 @@ export default function ChannelSubscriberView({
             )}
           </button>
           <button
-            onClick={onInfoClick}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
           >
             <MoreVertical className="h-5 w-5" />
@@ -191,7 +170,6 @@ export default function ChannelSubscriberView({
       {isMuted ? (
         <div className="border-t border-gray-100 bg-white p-3">
           <button
-            onClick={onToggleMute}
             className="flex h-12 w-full items-center justify-center rounded-xl bg-holio-orange text-sm font-semibold text-white transition-colors hover:bg-holio-orange/90"
           >
             UNMUTE

@@ -10,12 +10,23 @@ import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getSocket } from '../../services/socket.service'
 import { cn } from '../../lib/utils'
+import type { Chat } from '../../types'
 
 interface GroupChatViewProps {
-  chatId: string
+  chat: Chat
 }
 
 const DEMO_TOPICS = ['General', 'Design', 'Development', 'Marketing', 'Random']
+
+const SENDER_COLORS = ['#6366f1', '#059669', '#dc2626', '#d97706', '#8b5cf6', '#0891b2', '#be185d']
+
+function getSenderColor(senderId: string): string {
+  let hash = 0
+  for (let i = 0; i < senderId.length; i++) {
+    hash = senderId.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length]
+}
 
 function groupMessagesByDate(messages: { createdAt: string }[]) {
   const groups: { label: string; indices: number[] }[] = []
@@ -42,8 +53,8 @@ function groupMessagesByDate(messages: { createdAt: string }[]) {
   return groups
 }
 
-export default function GroupChatView({ chatId }: GroupChatViewProps) {
-  const activeChat = useChatStore((s) => s.activeChat)
+export default function GroupChatView({ chat }: GroupChatViewProps) {
+  const activeChat = useChatStore((s) => s.activeChat) ?? chat
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
   const currentUserId = useAuthStore((s) => s.user?.id)
@@ -85,6 +96,7 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
     .slice(0, 2)
     .toUpperCase()
   const memberCount = (activeChat as any).members?.length ?? 0
+  const onlineCount = (activeChat as any).onlineCount ?? 0
 
   const filteredMessages = activeTopic
     ? messages.filter((msg) => (msg.metadata as any)?.topic === activeTopic)
@@ -99,7 +111,7 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
 
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite">
-      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
+      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 shadow-sm">
         <div className="flex items-center gap-3">
           <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
             <ArrowLeft className="h-5 w-5" />
@@ -112,14 +124,17 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
                 className="h-10 w-10 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-lavender text-sm font-semibold text-holio-text">
                 {initials}
               </div>
             )}
           </div>
           <div>
             <h3 className="text-sm font-semibold text-holio-text">{displayName}</h3>
-            <p className="text-xs text-holio-muted">{memberCount} members</p>
+            <p className="text-xs text-holio-muted">
+              {memberCount} member{memberCount !== 1 ? 's' : ''}
+              {onlineCount > 0 && <>, <span className="text-green-500">{onlineCount} online</span></>}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -135,7 +150,7 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
       </div>
 
       {hasTopics && (
-        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 bg-white px-4 py-2 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 bg-white px-4 py-2 shadow-sm scrollbar-hide">
           <button
             onClick={() => setActiveTopic(null)}
             className={cn(
@@ -172,7 +187,7 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
         />
       )}
 
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto px-6 py-4">
+      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-lavender/15 to-holio-lavender/5 px-6 py-4">
         {messagesLoading && (
           <div className="flex justify-center py-4">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
@@ -187,13 +202,17 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
               const isMine = msg.senderId === currentUserId
               const sameSender = isSameSenderAsPrev(idx)
               const senderInitial = msg.sender?.firstName?.[0]?.toUpperCase() ?? '?'
+              const senderColor = !isMine ? getSenderColor(msg.senderId) : undefined
 
               return (
-                <div key={msg.id} className={cn('flex gap-2', isMine ? 'justify-end' : 'justify-start')}>
+                <div key={msg.id} className={cn('flex gap-2', isMine ? 'justify-end' : 'justify-start', !sameSender ? 'mt-3' : 'mt-0.5')}>
                   {!isMine && (
-                    <div className="w-6 flex-shrink-0">
+                    <div className="w-7 flex-shrink-0">
                       {!sameSender && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-holio-lavender/30 text-[10px] font-semibold text-holio-text">
+                        <div
+                          className="flex h-7 w-7 items-center justify-center rounded-full ring-2 ring-white text-[10px] font-semibold text-white"
+                          style={{ backgroundColor: senderColor }}
+                        >
                           {senderInitial}
                         </div>
                       )}
@@ -211,6 +230,7 @@ export default function GroupChatView({ chatId }: GroupChatViewProps) {
                         }),
                         isMine,
                         senderName: !isMine && !sameSender ? msg.sender?.firstName : undefined,
+                        senderColor,
                         isRead: !!(msg as any).isRead || !!(msg as any).readAt,
                         isGroup: true,
                         type: msg.type,

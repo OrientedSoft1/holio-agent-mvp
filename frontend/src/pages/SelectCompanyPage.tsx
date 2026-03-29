@@ -1,7 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Plus, Users, Crown, Shield, Loader2 } from 'lucide-react'
+import { Building2, Plus, Users, Crown, Shield, Loader2, ArrowLeft, Check } from 'lucide-react'
 import { useCompanyStore } from '../stores/companyStore'
+import { useAuthStore } from '../stores/authStore'
+import Sidebar from '../components/layout/Sidebar'
+import BottomNavBar from '../components/layout/BottomNavBar'
 import type { Company } from '../types'
 import api from '../services/api.service'
 
@@ -76,7 +79,7 @@ function SkeletonRow() {
 
 export default function SelectCompanyPage() {
   const navigate = useNavigate()
-  const { companies, loading, fetchCompanies, switchCompany } =
+  const { companies, loading, fetchCompanies, switchCompany, activeCompany } =
     useCompanyStore()
   const [companiesWithMeta, setCompaniesWithMeta] = useState<
     CompanyWithMeta[]
@@ -93,9 +96,7 @@ export default function SelectCompanyPage() {
           try {
             const { data } = await api.get(`/companies/${c.id}/members`)
             const members = Array.isArray(data) ? data : []
-            const currentUserId = JSON.parse(
-              localStorage.getItem('accessToken') || '""',
-            )
+            const currentUserId = useAuthStore.getState().user?.id
             const myMembership = members.find(
               (m: { userId: string }) => m.userId === currentUserId,
             )
@@ -147,9 +148,19 @@ export default function SelectCompanyPage() {
       ? companiesWithMeta
       : companies.map((c) => ({ ...c, memberCount: 0, role: 'member' }))
 
-  return (
+  const content = (
     <div className="flex min-h-screen items-center justify-center bg-holio-offwhite px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-lg">
+      <div className="relative w-full max-w-lg rounded-2xl bg-white p-8 shadow-lg">
+        {activeCompany && (
+          <button
+            onClick={() => navigate(-1)}
+            className="absolute left-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
+
         <h1 className="mb-1 text-center text-3xl font-black tracking-tight text-holio-dark">
           HOLIO
         </h1>
@@ -179,28 +190,38 @@ export default function SelectCompanyPage() {
           </div>
         ) : (
           <div className="mb-4 space-y-1">
-            {displayCompanies.map((company) => (
-              <button
-                key={company.id}
-                onClick={() => handleSelectCompany(company)}
-                className="flex w-full items-center gap-4 rounded-xl p-4 text-left transition-colors hover:bg-holio-offwhite"
-              >
-                <CompanyAvatar company={company} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-holio-text">
-                    {company.name}
-                  </p>
-                  <div className="flex items-center gap-1 text-xs text-holio-muted">
-                    <Users className="h-3 w-3" />
-                    <span>
-                      {company.memberCount}{' '}
-                      {company.memberCount === 1 ? 'member' : 'members'}
-                    </span>
+            {displayCompanies.map((company) => {
+              const isActive = activeCompany?.id === company.id
+              return (
+                <button
+                  key={company.id}
+                  onClick={() => handleSelectCompany(company)}
+                  className={`flex w-full items-center gap-4 rounded-xl p-4 text-left transition-colors ${
+                    isActive
+                      ? 'bg-holio-orange/5 ring-1 ring-holio-orange/30'
+                      : 'hover:bg-holio-offwhite'
+                  }`}
+                >
+                  <CompanyAvatar company={company} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-holio-text">
+                      {company.name}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs text-holio-muted">
+                      <Users className="h-3 w-3" />
+                      <span>
+                        {company.memberCount}{' '}
+                        {company.memberCount === 1 ? 'member' : 'members'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                {company.role && <RoleBadge role={company.role} />}
-              </button>
-            ))}
+                  {isActive && (
+                    <Check className="h-5 w-5 shrink-0 text-holio-orange" />
+                  )}
+                  {company.role && <RoleBadge role={company.role} />}
+                </button>
+              )
+            })}
           </div>
         )}
 
@@ -268,6 +289,22 @@ export default function SelectCompanyPage() {
           )}
         </div>
       </div>
+    </div>
+  )
+
+  if (!activeCompany) {
+    return content
+  }
+
+  return (
+    <div className="flex h-screen bg-holio-offwhite">
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      <main className="flex-1 overflow-hidden pb-14 md:pb-0">
+        {content}
+      </main>
+      <BottomNavBar />
     </div>
   )
 }

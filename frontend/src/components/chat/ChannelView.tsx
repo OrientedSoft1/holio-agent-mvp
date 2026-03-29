@@ -10,8 +10,15 @@ import {
   Mic,
   Send,
   ChevronDown,
+  ArrowRight,
+  Bell,
+  Smile,
+  Pencil,
+  ExternalLink,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useChatStore } from '../../stores/chatStore'
+import type { Chat } from '../../types'
 
 interface ChannelPost {
   id: string
@@ -19,17 +26,11 @@ interface ChannelPost {
   timestamp: string
   viewCount: number
   commentCount: number
+  edited?: boolean
 }
 
 interface ChannelViewProps {
-  channelName: string
-  channelAvatar?: string | null
-  subscriberCount: number
-  isAdmin?: boolean
-  isMuted?: boolean
-  pinnedMessage?: string
-  onBack?: () => void
-  onInfoClick?: () => void
+  chat: Chat
 }
 
 const MOCK_POSTS: ChannelPost[] = [
@@ -48,6 +49,7 @@ const MOCK_POSTS: ChannelPost[] = [
     timestamp: '11:15 AM',
     viewCount: 843,
     commentCount: 12,
+    edited: true,
   },
   {
     id: '3',
@@ -73,16 +75,37 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-export default function ChannelView({
-  channelName,
-  channelAvatar,
-  subscriberCount,
-  isAdmin = true,
-  isMuted = false,
-  pinnedMessage = 'Welcome to the channel! Please read the rules before posting.',
-  onBack,
-  onInfoClick,
-}: ChannelViewProps) {
+const URL_REGEX = /https?:\/\/[^\s]+/
+
+function extractUrl(text: string): string | null {
+  const match = text.match(URL_REGEX)
+  return match ? match[0] : null
+}
+
+function LinkPreviewCard({ url }: { url: string }) {
+  const domain = new URL(url).hostname
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-holio-orange/10">
+        <ExternalLink className="h-4 w-4 text-holio-orange" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-holio-text dark:text-gray-200">{domain}</p>
+        <p className="truncate text-[11px] text-holio-muted">{url}</p>
+      </div>
+    </div>
+  )
+}
+
+export default function ChannelView({ chat }: ChannelViewProps) {
+  const channelName = chat.name ?? 'Channel'
+  const channelAvatar = chat.avatarUrl
+  const subscriberCount = (chat as any).members?.length ?? 0
+  const isAdmin = chat.myRole === 'admin' || chat.myRole === 'owner'
+  const isMuted = chat.muted ?? false
+  const pinnedMessage = (chat as any).pinnedMessage ?? undefined
+  const setActiveChat = useChatStore((s) => s.setActiveChat)
+
   const [broadcastText, setBroadcastText] = useState('')
   const [pinnedExpanded, setPinnedExpanded] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -100,12 +123,12 @@ export default function ChannelView({
     .toUpperCase()
 
   return (
-    <div className="flex flex-1 flex-col bg-holio-offwhite">
+    <div className="flex flex-1 flex-col bg-holio-offwhite dark:bg-gray-900">
       {/* Header */}
-      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
+      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center gap-3">
           <button
-            onClick={onBack}
+            onClick={() => setActiveChat(null)}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -123,7 +146,7 @@ export default function ChannelView({
             </div>
           )}
 
-          <button onClick={onInfoClick} className="text-left">
+          <button className="text-left">
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-holio-text">{channelName}</h3>
               {isMuted && <BellOff className="h-3.5 w-3.5 text-holio-muted" />}
@@ -168,44 +191,57 @@ export default function ChannelView({
 
       {/* Posts feed */}
       <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
-        {MOCK_POSTS.map((post) => (
-          <div
-            key={post.id}
-            className="overflow-hidden rounded-xl bg-white shadow-sm"
-          >
-            <div className="p-4">
-              <span className="text-sm font-bold text-holio-orange">{channelName}</span>
-              <p className="mt-2 text-sm leading-relaxed text-holio-text">{post.content}</p>
-              <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 text-holio-muted">
-                    <Eye className="h-3.5 w-3.5" />
-                    <span className="text-xs">{formatCount(post.viewCount)}</span>
+        {MOCK_POSTS.map((post) => {
+          const linkUrl = extractUrl(post.content)
+          return (
+            <div
+              key={post.id}
+              className="overflow-hidden rounded-xl border-l-3 border-holio-orange bg-white shadow-sm dark:bg-gray-900"
+            >
+              <div className="p-4">
+                <span className="text-sm font-bold text-holio-orange">{channelName}</span>
+                <p className="mt-2 text-sm leading-relaxed text-holio-text">{post.content}</p>
+                {linkUrl && <LinkPreviewCard url={linkUrl} />}
+                <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3 dark:border-gray-800">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-holio-muted">
+                      <Eye className="h-3.5 w-3.5" />
+                      <span className="text-xs">{formatCount(post.viewCount)}</span>
+                    </div>
+                    <span className="text-[11px] text-holio-muted">{post.timestamp}</span>
+                    {post.edited && (
+                      <span className="flex items-center gap-0.5 text-[11px] text-holio-muted">
+                        <Pencil className="h-3 w-3" />
+                        edited
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[11px] text-holio-muted">{post.timestamp}</span>
+                  <button className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span className={cn('text-xs', post.commentCount === 0 && 'text-holio-orange')}>
+                      {post.commentCount > 0
+                        ? `${post.commentCount} comments`
+                        : 'Leave a comment'}
+                    </span>
+                    {post.commentCount === 0 && (
+                      <ArrowRight className="h-3 w-3 text-holio-orange" />
+                    )}
+                  </button>
                 </div>
-                <button className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span className="text-xs">
-                    {post.commentCount > 0
-                      ? `${post.commentCount} comments`
-                      : 'Leave a comment'}
-                  </span>
-                </button>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Broadcast input bar (admin only) */}
       {isAdmin && (
-        <div className="flex items-end gap-2 border-t border-gray-100 bg-white px-3 py-2.5">
+        <div className="flex items-end gap-2 border-t border-gray-100 bg-white px-3 py-2.5 dark:border-gray-800 dark:bg-gray-900">
           <button className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
             <Paperclip className="h-5 w-5" />
           </button>
 
-          <div className="flex min-h-[40px] flex-1 items-center rounded-2xl bg-gray-100 px-4">
+          <div className="flex min-h-[40px] flex-1 items-center rounded-xl bg-gray-100 px-4 transition-shadow focus-within:ring-2 focus-within:ring-holio-orange/30">
             <input
               type="text"
               value={broadcastText}
@@ -213,7 +249,14 @@ export default function ChannelView({
               placeholder="Broadcast..."
               className="w-full bg-transparent py-2.5 text-sm text-holio-text placeholder:text-holio-muted outline-none"
             />
+            <button className="ml-1 flex-shrink-0 text-holio-muted transition-colors hover:text-holio-text">
+              <Smile className="h-5 w-5" />
+            </button>
           </div>
+
+          <button className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-orange">
+            <Bell className="h-5 w-5" />
+          </button>
 
           {broadcastText.trim() ? (
             <button className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-holio-orange text-white transition-colors hover:bg-holio-orange/90">

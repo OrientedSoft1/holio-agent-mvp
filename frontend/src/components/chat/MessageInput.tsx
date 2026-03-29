@@ -94,6 +94,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
 
     setSending(true)
     setText('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setShowMentionMenu(false)
     setShowSchedule(false)
     try {
@@ -300,7 +301,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
   }
 
   return (
-    <div className="relative border-t border-gray-100 bg-white dark:bg-[#152022] dark:border-[#1E3035]">
+    <div className="relative border-t border-gray-100 bg-white px-1 dark:bg-[#152022] dark:border-[#1E3035]">
       {replyToMessage && (
         <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 dark:border-[#1E3035]">
           <Reply className="h-4 w-4 text-holio-orange" />
@@ -405,7 +406,7 @@ export default function MessageInput({ chatId }: MessageInputProps) {
         )}
 
         <div
-          className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-2.5 text-sm text-transparent"
+          className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-full px-4 py-2.5 text-sm text-transparent"
           aria-hidden
         >
           {renderStyledText()}
@@ -416,9 +417,9 @@ export default function MessageInput({ chatId }: MessageInputProps) {
           value={text}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder="Write a message... (type @ to mention a bot)"
+          placeholder="Write a message..."
           rows={1}
-          className="w-full resize-none rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-holio-text outline-none placeholder:text-holio-muted focus:ring-2 focus:ring-holio-lavender/50 dark:bg-[#1A2A2D] dark:text-white"
+          className="w-full resize-none rounded-full bg-gray-100 px-4 py-2.5 text-sm text-holio-text outline-none placeholder:text-holio-muted focus:ring-2 focus:ring-holio-lavender/50 dark:bg-[#1A2A2D] dark:text-white"
           style={{ maxHeight: 120 }}
         />
       </div>

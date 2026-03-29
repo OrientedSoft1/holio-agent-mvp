@@ -50,7 +50,7 @@ export interface CompanyMember {
 
 export interface Chat {
   id: string
-  type: 'private' | 'group' | 'channel' | 'bot' | 'crossCompany'
+  type: 'private' | 'group' | 'channel' | 'bot' | 'crossCompany' | 'secret'
   name: string | null
   avatarUrl: string | null
   lastMessage: Message | null
@@ -61,6 +61,8 @@ export interface Chat {
   slowModeInterval: number
   myRole?: 'owner' | 'admin' | 'member'
   muted?: boolean
+  pinned?: boolean
+  isFavourite?: boolean
   createdAt: string
 }
 
@@ -124,6 +126,8 @@ export interface Message {
   metadata: MessageMetadata | null
   reactions?: MessageReaction[]
   scheduledAt?: string | null
+  isRead?: boolean
+  isEdited?: boolean
   createdAt: string
   updatedAt: string
   sender: User

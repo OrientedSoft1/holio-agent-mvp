@@ -6,6 +6,7 @@ import {
   MoreVertical,
   MessageCircle,
   QrCode,
+  Info,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuthStore } from '../stores/authStore'
@@ -93,13 +94,38 @@ export default function UserProfilePage() {
 
   return (
     <div className="flex h-screen flex-col bg-holio-offwhite">
-      <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-100"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
+      <header
+        className={cn(
+          'flex h-14 flex-shrink-0 items-center justify-between border-b bg-white px-4 transition-all duration-200',
+          scrollTop > 100 ? 'border-gray-100 shadow-sm' : 'border-transparent',
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-100"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          {scrollTop > 100 && (
+            <div className="flex items-center gap-2 transition-opacity duration-200">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.firstName}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-holio-lavender text-xs font-bold text-white">
+                  {initials}
+                </div>
+              )}
+              <span className="text-sm font-semibold text-holio-text">
+                {user.firstName} {user.lastName ?? ''}
+              </span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-1">
           <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100">
             <Phone className="h-5 w-5" />
@@ -115,37 +141,46 @@ export default function UserProfilePage() {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto"
       >
-        <div className="flex flex-col items-center px-4 pb-4 pt-8">
+        <div className="flex flex-col items-center px-4 pb-4 pt-10">
           <div className="relative">
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.firstName}
-                className="h-[120px] w-[120px] rounded-full object-cover"
+                className="h-[120px] w-[120px] rounded-full object-cover ring-4 ring-holio-lavender/20"
               />
             ) : (
-              <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-holio-lavender text-3xl font-bold text-white">
+              <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-holio-lavender text-3xl font-bold text-white ring-4 ring-holio-lavender/20">
                 {initials}
               </div>
             )}
-            <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-holio-orange shadow-md">
-              <MessageCircle className="h-4 w-4 text-white" />
+            <button className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-holio-orange shadow-lg">
+              <MessageCircle className="h-[18px] w-[18px] text-white" />
             </button>
           </div>
 
           <h1 className="mt-4 text-[22px] font-bold text-holio-text">
             {user.firstName} {user.lastName ?? ''}
           </h1>
-          <p className={cn('mt-1 text-sm', isOnline ? 'text-holio-orange' : 'text-holio-muted')}>
+          <p className={cn('mt-1 flex items-center gap-1.5 text-sm', isOnline ? 'text-holio-orange' : 'text-holio-muted')}>
+            {isOnline && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+              </span>
+            )}
             {statusText}
           </p>
         </div>
 
-        <div className="mx-4 rounded-2xl bg-white">
+        <div className="mx-4 rounded-2xl bg-white shadow-sm">
           {user.bio && (
             <>
               <div className="px-4 py-3">
-                <p className="text-xs text-holio-muted">Bio</p>
+                <p className="flex items-center gap-1.5 text-xs text-holio-muted">
+                  <Info className="h-3.5 w-3.5" />
+                  Bio
+                </p>
                 <p className="mt-1 text-sm text-holio-text">{user.bio}</p>
               </div>
               <div className="mx-4 h-px bg-gray-100" />
@@ -159,7 +194,7 @@ export default function UserProfilePage() {
                   <p className="text-xs text-holio-muted">Username</p>
                   <p className="mt-1 text-sm text-holio-text">@{user.username}</p>
                 </div>
-                <button className="text-holio-orange">
+                <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-holio-orange/10 text-holio-orange">
                   <QrCode className="h-5 w-5" />
                 </button>
               </div>
@@ -186,8 +221,8 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        <div className="mt-4">
-          <div className="flex items-center gap-1 overflow-x-auto px-4 scrollbar-none">
+        <div className="sticky top-0 z-10 mt-4 bg-holio-offwhite">
+          <div className="flex items-center gap-1 overflow-x-auto px-4 scrollbar-hide">
             {MEDIA_TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -207,12 +242,15 @@ export default function UserProfilePage() {
         </div>
 
         <div className="grid grid-cols-3 gap-0.5 p-0.5">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-square rounded-sm bg-gray-200"
-            />
-          ))}
+          {Array.from({ length: 12 }).map((_, i) => {
+            const palette = ['bg-holio-lavender/20', 'bg-holio-sage/20', 'bg-holio-orange/10']
+            return (
+              <div
+                key={i}
+                className={cn('aspect-square rounded-sm', palette[i % palette.length])}
+              />
+            )
+          })}
         </div>
       </div>
     </div>

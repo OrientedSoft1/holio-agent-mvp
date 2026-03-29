@@ -20,9 +20,9 @@ export default function SettingsNotificationsPage() {
   const [pinnedMessages, setPinnedMessages] = useState(true)
 
   return (
-    <div className="flex h-screen flex-col bg-[#FCFCF8]">
+    <div className="flex h-screen flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
-        <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100">
+        <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
         </button>
         <h1 className="text-lg font-semibold text-holio-text">Notifications</h1>
@@ -30,7 +30,7 @@ export default function SettingsNotificationsPage() {
 
       <div className="flex-1 overflow-y-auto pb-8">
         <SectionLabel>Message Notifications</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
           <SettingRow label="Alerts"><Toggle value={msgAlert} onChange={setMsgAlert} /></SettingRow>
           <Divider />
           <SettingRow label="Message Preview"><Toggle value={msgPreview} onChange={setMsgPreview} /></SettingRow>
@@ -39,7 +39,7 @@ export default function SettingsNotificationsPage() {
         </div>
 
         <SectionLabel>Group Notifications</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
           <SettingRow label="Alerts"><Toggle value={grpAlert} onChange={setGrpAlert} /></SettingRow>
           <Divider />
           <SettingRow label="Message Preview"><Toggle value={grpPreview} onChange={setGrpPreview} /></SettingRow>
@@ -48,7 +48,7 @@ export default function SettingsNotificationsPage() {
         </div>
 
         <SectionLabel>In-App Notifications</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
           <SettingRow label="Sounds"><Toggle value={inAppSounds} onChange={setInAppSounds} /></SettingRow>
           <Divider />
           <SettingRow label="Vibrate"><Toggle value={inAppVibrate} onChange={setInAppVibrate} /></SettingRow>
@@ -57,7 +57,7 @@ export default function SettingsNotificationsPage() {
         </div>
 
         <SectionLabel>Other</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
           <SettingRow label="Contact Joined Holio"><Toggle value={contactJoined} onChange={setContactJoined} /></SettingRow>
           <Divider />
           <SettingRow label="Pinned Messages"><Toggle value={pinnedMessages} onChange={setPinnedMessages} /></SettingRow>
@@ -72,7 +72,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Divider() {
-  return <div className="mx-4 border-t border-gray-100" />
+  return <div className="mx-4 border-t border-gray-100 dark:border-gray-800" />
 }
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -86,7 +86,7 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button onClick={() => onChange(!value)} className={cn('relative h-6 w-11 rounded-full', value ? 'bg-[#FF9220]' : 'bg-gray-300')}>
+    <button onClick={() => onChange(!value)} className={cn('relative h-6 w-11 rounded-full', value ? 'bg-holio-orange' : 'bg-gray-300 dark:bg-gray-600')}>
       <span className={cn('absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', value ? 'translate-x-5' : '')} />
     </button>
   )
@@ -94,7 +94,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 
 function SoundSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-holio-text outline-none focus:border-[#FF9220]">
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-holio-text dark:text-holio-text outline-none focus:border-holio-orange">
       {SOUNDS.map((s) => <option key={s} value={s}>{s}</option>)}
     </select>
   )

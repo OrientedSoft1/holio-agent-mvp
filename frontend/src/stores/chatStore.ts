@@ -69,11 +69,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setActiveChat: (chat: Chat) => {
-    set({ activeChat: chat, messages: [], hasMoreMessages: true })
+    set({ activeChat: chat, messages: [], hasMoreMessages: true, replyToMessage: null, editingMessage: null })
   },
 
   addMessage: (message: Message) =>
     set((state) => {
+      if (state.messages.some((m) => m.id === message.id)) return state
       const messages = [...state.messages, message]
       const chats = state.chats.map((c) =>
         c.id === message.chatId

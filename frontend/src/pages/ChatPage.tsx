@@ -15,7 +15,6 @@ import type { Chat } from '../types'
 
 export default function ChatPage() {
   const showInfoPanel = useUiStore((s) => s.showInfoPanel)
-  const darkMode = useUiStore((s) => s.darkMode)
   const chatListWidth = useUiStore((s) => s.chatListWidth)
   const infoPanelWidth = useUiStore((s) => s.infoPanelWidth)
   const setChatListWidth = useUiStore((s) => s.setChatListWidth)
@@ -54,7 +53,7 @@ export default function ChatPage() {
   const isContactsView = activeNavItem === 'contacts'
 
   return (
-    <div className={darkMode ? 'dark' : ''}>
+    <>
       <div className="flex h-screen overflow-hidden bg-holio-offwhite">
         <div className="hidden md:block">
           <Sidebar />
@@ -95,6 +94,6 @@ export default function ChatPage() {
         onClose={() => setShowGlobalSearch(false)}
         onSelectChat={handleSearchSelectChat}
       />
-    </div>
+    </>
   )
 }

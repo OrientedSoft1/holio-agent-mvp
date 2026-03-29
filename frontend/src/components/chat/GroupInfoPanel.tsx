@@ -123,7 +123,7 @@ export default function GroupInfoPanel({
         </div>
 
         <div className="mt-4">
-          <div className="flex items-center gap-1 overflow-x-auto px-4 scrollbar-none">
+          <div className="flex items-center gap-1 overflow-x-auto px-4 scrollbar-hide">
             {INFO_TABS.map((tab) => (
               <button
                 key={tab.key}

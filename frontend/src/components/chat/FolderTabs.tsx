@@ -89,7 +89,7 @@ export default function FolderTabs() {
   }
 
   return (
-    <div className="relative flex items-center gap-1 overflow-x-auto px-3 pb-2 scrollbar-none">
+    <div className="relative flex items-center gap-1 overflow-x-auto px-3 pb-2 scrollbar-hide">
       {folders.map((folder) => (
         <div key={folder.id} className="relative flex-shrink-0">
           {editingId === folder.id ? (

@@ -1,21 +1,18 @@
-import { ChevronLeft, Phone, MoreVertical, ShieldCheck, Lock } from 'lucide-react'
+import { Phone, MoreVertical, ShieldCheck, Lock } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import type { Chat } from '../../types'
 
 interface SecretChatInvitationProps {
-  inviterName: string
-  inviterAvatar?: string | null
-  inviterStatus?: string
-  onAccept: () => void
-  onBack: () => void
+  chat: Chat
 }
 
 export default function SecretChatInvitation({
-  inviterName,
-  inviterAvatar,
-  inviterStatus = 'last seen recently',
-  onAccept,
-  onBack,
+  chat,
 }: SecretChatInvitationProps) {
+  const inviterName = chat.name ?? 'Unknown'
+  const inviterAvatar = chat.avatarUrl
+  const inviterStatus = 'last seen recently'
+
   const initials = inviterName
     .split(' ')
     .map((w) => w[0])
@@ -26,13 +23,6 @@ export default function SecretChatInvitation({
   return (
     <div className="flex h-full flex-col bg-holio-offwhite">
       <header className="flex h-[72px] flex-shrink-0 items-center gap-2 border-b border-gray-200 bg-[#fafafa] px-4">
-        <button
-          onClick={onBack}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-100"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-
         <div className="relative">
           {inviterAvatar ? (
             <img
@@ -104,7 +94,6 @@ export default function SecretChatInvitation({
 
       <div className="flex-shrink-0 px-4 pb-6 pt-2">
         <button
-          onClick={onAccept}
           className="w-full rounded-xl bg-holio-orange py-3 text-base font-medium text-white transition-colors hover:bg-holio-orange/90 active:bg-holio-orange/80"
         >
           Accept

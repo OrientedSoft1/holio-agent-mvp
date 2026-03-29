@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import ChatHeader from './ChatHeader'
 import MessageBubble from './MessageBubble'
@@ -6,6 +6,12 @@ import DateSeparator from './DateSeparator'
 import MessageInput from './MessageInput'
 import InChatSearch from '../search/InChatSearch'
 import TypingIndicator from './TypingIndicator'
+import PinnedMessagesPanel from './PinnedMessagesPanel'
+import GroupChatView from './GroupChatView'
+import ChannelView from './ChannelView'
+import ChannelSubscriberView from './ChannelSubscriberView'
+import SecretChatView from './SecretChatView'
+import SecretChatInvitation from './SecretChatInvitation'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -46,6 +52,7 @@ export default function ChatViewPanel() {
   const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
+  const [showPinned, setShowPinned] = useState(false)
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight }, [messages])
   useEffect(() => {
     if (!activeChat || !messages.length || !currentUserId) return
@@ -57,9 +64,9 @@ export default function ChatViewPanel() {
   }, [activeChat, messages, currentUserId])
 
   if (!activeChat) {
-    return (<div className="flex flex-1 flex-col items-center justify-center bg-holio-offwhite">
+    return (<div className="flex flex-1 flex-col items-center justify-center bg-holio-offwhite dark:bg-holio-dark">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-holio-lavender/30"><MessageSquare className="h-10 w-10 text-holio-lavender" /></div>
-      <h3 className="mt-4 text-lg font-semibold text-holio-text">Select a chat to start messaging</h3>
+      <h3 className="mt-4 text-lg font-semibold text-holio-text dark:text-white">Select a chat to start messaging</h3>
       <p className="mt-1 text-sm text-holio-muted">Choose a conversation from the list</p>
     </div>)
   }
@@ -77,11 +84,32 @@ export default function ChatViewPanel() {
     ? (peerOnline ? 'online' : (peerLastSeen ? `last seen ${new Date(peerLastSeen).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}` : ''))
     : (isGroupLike ? `${chatMembers?.length ?? 0} members` : '')
 
+  if (activeChat.type === 'group') {
+    return <GroupChatView chat={activeChat} />
+  }
+
+  if (activeChat.type === 'channel') {
+    const isAdmin = chatMembers?.some((m) => m.userId === currentUserId && (m as any).role === 'admin')
+    if (isAdmin) {
+      return <ChannelView chat={activeChat} />
+    }
+    return <ChannelSubscriberView chat={activeChat} />
+  }
+
+  if (activeChat.type === 'secret') {
+    const accepted = (activeChat as any).secretAccepted
+    if (!accepted) {
+      return <SecretChatInvitation chat={activeChat} />
+    }
+    return <SecretChatView chat={activeChat} />
+  }
+
   return (
-    <div className="flex flex-1 flex-col bg-holio-offwhite">
-      <ChatHeader name={displayName} avatarUrl={activeChat.avatarUrl} initials={initials} avatarColor={color} status={statusText} isOnline={isOnline} />
+    <div className="flex flex-1 flex-col bg-holio-offwhite dark:bg-holio-dark">
+      <ChatHeader name={displayName} avatarUrl={activeChat.avatarUrl} initials={initials} avatarColor={color} status={statusText} isOnline={isOnline} chatId={activeChat.id} />
+      {showPinned && <PinnedMessagesPanel chatId={activeChat.id} onClose={() => setShowPinned(false)} />}
       {showInChatSearch && <InChatSearch chatId={activeChat.id} open={showInChatSearch} onClose={() => setShowInChatSearch(false)} />}
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-lavender/20 to-holio-lavender/10 px-4 py-4">
+      <div ref={scrollRef} className="flex flex-1 flex-col gap-1 overflow-y-auto bg-holio-offwhite px-4 py-4 thin-scrollbar">
         {messagesLoading && (<div className="flex justify-center py-4"><div className="h-6 w-6 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" /></div>)}
         {dateGroups.map((group) => (<div key={group.label}><DateSeparator label={group.label} />
           {group.indices.map((idx) => { const msg = messages[idx]; return (<MessageBubble key={msg.id} rawMessage={msg} message={{ id: msg.id, content: msg.content, timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isMine: msg.senderId === currentUserId, senderName: msg.sender?.firstName, isRead: !!(msg as any).isRead || !!(msg as any).readAt, isEdited: !!(msg as any).isEdited, isGroup: isGroupLike, type: msg.type, fileUrl: msg.fileUrl, metadata: msg.metadata, reactions: msg.reactions, scheduledAt: msg.scheduledAt, currentUserId }} />) })}

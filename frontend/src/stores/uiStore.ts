@@ -24,7 +24,8 @@ interface UiState {
   setInfoPanelWidth: (width: number) => void
 }
 
-const storedDark = localStorage.getItem('holio-dark-mode') === 'true'
+const storedDark = typeof localStorage !== 'undefined' && localStorage.getItem('holio-dark-mode') === 'true'
+if (storedDark) document.documentElement.classList.add('dark')
 
 export const useUiStore = create<UiState>((set) => ({
   showInfoPanel: false,
@@ -46,6 +47,7 @@ export const useUiStore = create<UiState>((set) => ({
     set((s) => {
       const next = !s.darkMode
       localStorage.setItem('holio-dark-mode', String(next))
+      document.documentElement.classList.toggle('dark', next)
       return { darkMode: next }
     }),
   setActiveNavItem: (item) => set({ activeNavItem: item }),

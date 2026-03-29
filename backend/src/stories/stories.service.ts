@@ -84,7 +84,7 @@ export class StoriesService {
       .find({
         where: {
           viewerId: viewerUserId,
-          storyId: In(visible.map((s) => s.id).concat(['__placeholder__'])),
+          storyId: In(visible.map((s) => s.id).concat(['00000000-0000-0000-0000-000000000000'])),
         },
         select: ['storyId'],
       })

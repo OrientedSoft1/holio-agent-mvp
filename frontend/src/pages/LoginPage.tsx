@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Phone, ArrowRight, ChevronDown } from 'lucide-react'
 import api from '../services/api.service'
@@ -29,6 +29,18 @@ export default function LoginPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dropdownOpen])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -46,8 +58,9 @@ export default function LoginPage() {
         state: { phone: phone.trim(), countryCode: selectedCountry.code },
       })
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : 'Failed to send code. Try again.'
+      const axiosErr = err as any
+      const msg = axiosErr?.response?.data?.message
+        ?? (err instanceof Error ? err.message : 'Failed to send code. Try again.')
       setError(msg)
     } finally {
       setLoading(false)
@@ -71,7 +84,7 @@ export default function LoginPage() {
 
           <div className="mb-4 flex gap-2">
             {/* Country code dropdown */}
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setDropdownOpen(!dropdownOpen)}

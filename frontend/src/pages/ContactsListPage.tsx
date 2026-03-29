@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Search, MapPin, UserPlus, Users, Plus, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Search, MapPin, UserPlus, Users, Plus, X, ShieldBan } from 'lucide-react'
 import { useContactsStore, type Contact } from '../stores/contactsStore'
 import { cn } from '../lib/utils'
 
 const actionItems = [
-  { icon: MapPin, label: 'Find People Nearby' },
-  { icon: UserPlus, label: 'Invite Friends' },
+  { icon: MapPin, label: 'Find People Nearby', route: '/nearby' },
+  { icon: UserPlus, label: 'Invite Friends', route: '/invite-friends' },
   { icon: Users, label: 'Contact Categories' },
-  { icon: Plus, label: 'Add New Contact' },
+  { icon: Plus, label: 'Add New Contact', route: '/contacts/new' },
+  { icon: ShieldBan, label: 'Blocked Contacts', route: '/contacts/blocked' },
 ]
 
 function getInitials(firstName: string, lastName: string | null) {
@@ -32,10 +34,19 @@ function groupByLetter(contacts: Contact[]) {
 }
 
 export default function ContactsListPage() {
+  const navigate = useNavigate()
   const contacts = useContactsStore((s) => s.contacts)
   const fetchContacts = useContactsStore((s) => s.fetchContacts)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [scrolled, setScrolled] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setScrolled(el.scrollTop > 60)
+  }, [])
 
   useEffect(() => {
     fetchContacts()
@@ -55,8 +66,22 @@ export default function ContactsListPage() {
   return (
     <div className="flex h-full flex-col bg-holio-offwhite">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <h1 className="text-[22px] font-bold text-holio-text">Contacts</h1>
+      <div
+        className={cn(
+          'flex items-center justify-between px-4 transition-all duration-200',
+          scrolled
+            ? 'border-b border-gray-100 py-2 shadow-sm'
+            : 'pt-4 pb-2',
+        )}
+      >
+        <h1
+          className={cn(
+            'font-bold text-holio-text transition-all duration-200',
+            scrolled ? 'text-base' : 'text-[22px]',
+          )}
+        >
+          Contacts
+        </h1>
         <button
           type="button"
           onClick={() => {
@@ -93,13 +118,14 @@ export default function ContactsListPage() {
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         {/* Action items */}
         <div className="px-4 pt-1 pb-2">
-          {actionItems.map(({ icon: Icon, label }) => (
+          {actionItems.map(({ icon: Icon, label, route }) => (
             <button
               key={label}
               type="button"
+              onClick={() => route && navigate(route)}
               className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-black/5"
             >
               <Icon className="h-5 w-5 text-holio-orange" />

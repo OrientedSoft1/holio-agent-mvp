@@ -66,6 +66,13 @@ export function useSocket() {
 
     socket.emit('chat:join', { chatId: activeChat.id })
     joinedChatRef.current = activeChat.id
+
+    return () => {
+      if (joinedChatRef.current) {
+        socket.emit('chat:leave', { chatId: joinedChatRef.current })
+        joinedChatRef.current = null
+      }
+    }
   }, [activeChat])
 
   const emitTyping = useCallback(() => {

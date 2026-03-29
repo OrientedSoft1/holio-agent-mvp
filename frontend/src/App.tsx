@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
+import { useUiStore } from './stores/uiStore'
 import LoginPage from './pages/LoginPage'
 import VerifyPage from './pages/VerifyPage'
 import TwoFactorPage from './pages/TwoFactorPage'
@@ -15,11 +16,6 @@ import StoryPage from './pages/StoryPage'
 import SettingsAccountPage from './pages/SettingsAccountPage'
 import SettingsNotificationsPage from './pages/SettingsNotificationsPage'
 import SettingsChatAppearancePage from './pages/SettingsChatAppearancePage'
-import SavedMessagesPage from './pages/SavedMessagesPage'
-import RecentCallsPage from './pages/RecentCallsPage'
-import BlockedContactsPage from './pages/BlockedContactsPage'
-import InviteFriendsPage from './pages/InviteFriendsPage'
-import NearbyPeoplePage from './pages/NearbyPeoplePage'
 import SettingsDataStoragePage from './pages/SettingsDataStoragePage'
 import SettingsDevicesPage from './pages/SettingsDevicesPage'
 import SettingsFoldersPage from './pages/SettingsFoldersPage'
@@ -28,6 +24,17 @@ import ContactsListPage from './pages/ContactsListPage'
 import NewContactPage from './pages/NewContactPage'
 import HolioProDashboard from './pages/HolioProDashboard'
 import HolioProPage from './pages/HolioProPage'
+import InviteFriendsPage from './pages/InviteFriendsPage'
+import SavedMessagesPage from './pages/SavedMessagesPage'
+import RecentCallsPage from './pages/RecentCallsPage'
+import BlockedContactsPage from './pages/BlockedContactsPage'
+import NearbyPeoplePage from './pages/NearbyPeoplePage'
+import BotAnalyticsPage from './pages/BotAnalyticsPage'
+import ChangePhonePage from './pages/ChangePhonePage'
+import ChangeUsernamePage from './pages/ChangeUsernamePage'
+import ScheduledMessagesPage from './pages/ScheduledMessagesPage'
+import ArchivedChatsPage from './pages/ArchivedChatsPage'
+import HelpAboutPage from './pages/HelpAboutPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -36,7 +43,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const darkMode = useUiStore((s) => s.darkMode)
+
   return (
+    <div className={darkMode ? 'dark' : ''}>
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -47,6 +57,7 @@ export default function App() {
         <Route path="/company-settings" element={<ProtectedRoute><CompanySettingsPage /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="/bots" element={<ProtectedRoute><BotsPage /></ProtectedRoute>} />
+        <Route path="/bots/:botId/analytics" element={<ProtectedRoute><BotAnalyticsPage /></ProtectedRoute>} />
         <Route path="/settings/account" element={<ProtectedRoute><SettingsAccountPage /></ProtectedRoute>} />
         <Route path="/settings/notifications" element={<ProtectedRoute><SettingsNotificationsPage /></ProtectedRoute>} />
         <Route path="/settings/chat-appearance" element={<ProtectedRoute><SettingsChatAppearancePage /></ProtectedRoute>} />
@@ -57,13 +68,24 @@ export default function App() {
         <Route path="/edit-profile" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
         <Route path="/profile/:userId" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
         <Route path="/contacts/new" element={<ProtectedRoute><NewContactPage /></ProtectedRoute>} />
+        <Route path="/contacts/blocked" element={<ProtectedRoute><BlockedContactsPage /></ProtectedRoute>} />
         <Route path="/contacts" element={<ProtectedRoute><ContactsListPage /></ProtectedRoute>} />
         <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
+        <Route path="/invite-friends" element={<ProtectedRoute><InviteFriendsPage /></ProtectedRoute>} />
+        <Route path="/saved-messages" element={<ProtectedRoute><SavedMessagesPage /></ProtectedRoute>} />
+        <Route path="/calls" element={<ProtectedRoute><RecentCallsPage /></ProtectedRoute>} />
+        <Route path="/nearby" element={<ProtectedRoute><NearbyPeoplePage /></ProtectedRoute>} />
+        <Route path="/change-phone" element={<ProtectedRoute><ChangePhonePage /></ProtectedRoute>} />
+        <Route path="/change-username" element={<ProtectedRoute><ChangeUsernamePage /></ProtectedRoute>} />
+        <Route path="/scheduled-messages" element={<ProtectedRoute><ScheduledMessagesPage /></ProtectedRoute>} />
+        <Route path="/archived" element={<ProtectedRoute><ArchivedChatsPage /></ProtectedRoute>} />
         <Route path="/story" element={<ProtectedRoute><StoryPage /></ProtectedRoute>} />
         <Route path="/holio-pro/dashboard" element={<ProtectedRoute><HolioProDashboard /></ProtectedRoute>} />
         <Route path="/holio-pro" element={<ProtectedRoute><HolioProPage /></ProtectedRoute>} />
+        <Route path="/help" element={<ProtectedRoute><HelpAboutPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </BrowserRouter>
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useCompanyStore } from '../../stores/companyStore'
 import { cn } from '../../lib/utils'
 import type { Company } from '../../types'
@@ -49,6 +50,7 @@ function Tooltip({
 }
 
 export default function CompanySwitcher() {
+  const navigate = useNavigate()
   const { companies, activeCompany, fetchCompanies, switchCompany } =
     useCompanyStore()
 
@@ -63,8 +65,8 @@ export default function CompanySwitcher() {
   }
 
   return (
-    <div className="flex h-full w-[60px] flex-col items-center bg-holio-dark py-3">
-      <div className="flex flex-1 flex-col items-center gap-2 overflow-y-auto">
+    <div className="flex w-full flex-col items-center py-3">
+      <div className="flex flex-col items-center gap-2">
         {companies.map((company) => {
           const isActive = activeCompany?.id === company.id
           return (
@@ -93,7 +95,7 @@ export default function CompanySwitcher() {
       <Tooltip text="Add workspace">
         <button
           onClick={() => {
-            window.location.href = '/select-company'
+            navigate('/select-company')
           }}
           className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-white/30 text-white/50 transition-all hover:border-white/60 hover:text-white/80"
         >

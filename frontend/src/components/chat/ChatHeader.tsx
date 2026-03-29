@@ -1,4 +1,4 @@
-import { ChevronLeft, Phone, MoreVertical } from 'lucide-react'
+import { ChevronLeft, Search, Copy, MoreVertical } from 'lucide-react'
 import { useUiStore } from '../../stores/uiStore'
 
 interface ChatHeaderProps {
@@ -9,6 +9,8 @@ interface ChatHeaderProps {
   status: string
   isOnline: boolean
   onBack?: () => void
+  chatId?: string
+  onPinClick?: () => void
 }
 
 export default function ChatHeader({
@@ -21,9 +23,10 @@ export default function ChatHeader({
   onBack,
 }: ChatHeaderProps) {
   const toggleInfoPanel = useUiStore((s) => s.toggleInfoPanel)
+  const setShowInChatSearch = useUiStore((s) => s.setShowInChatSearch)
 
   return (
-    <div className="flex h-[72px] flex-shrink-0 items-center justify-between border-b border-gray-200 bg-[#fafafa] px-3">
+    <div className="flex h-[64px] flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 dark:bg-[#152022] dark:border-[#1E3035]">
       <div className="flex items-center gap-2">
         {onBack && (
           <button
@@ -43,37 +46,46 @@ export default function ChatHeader({
               <img
                 src={avatarUrl}
                 alt={name}
-                className="h-12 w-12 rounded-full object-cover"
+                className="h-11 w-11 rounded-full object-cover"
               />
             ) : (
               <div
-                className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white"
                 style={{ backgroundColor: avatarColor }}
               >
                 {initials}
               </div>
             )}
             {isOnline && (
-              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-[#fafafa] bg-green-500" />
+              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
             )}
           </div>
           <div>
-            <h3 className="text-lg font-medium leading-tight text-holio-text">{name}</h3>
-            <p className="text-sm text-holio-muted">{status}</p>
+            <h3 className="text-[15px] font-semibold leading-tight text-holio-text">{name}</h3>
+            <p className="text-[13px] text-holio-muted">{status}</p>
           </div>
         </button>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         <button
+          onClick={() => setShowInChatSearch(true)}
           className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
+          title="Search in chat"
         >
-          <Phone className="h-5 w-5" />
+          <Search className="h-[18px] w-[18px]" />
         </button>
         <button
           className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
+          title="Copy"
         >
-          <MoreVertical className="h-5 w-5" />
+          <Copy className="h-[18px] w-[18px]" />
+        </button>
+        <button
+          className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
+          title="More"
+        >
+          <MoreVertical className="h-[18px] w-[18px]" />
         </button>
       </div>
     </div>

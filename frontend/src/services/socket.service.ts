@@ -3,7 +3,10 @@ import { io, Socket } from 'socket.io-client'
 let socket: Socket | null = null
 
 export function connectSocket(token: string): Socket {
-  if (socket?.connected) return socket
+  if (socket?.connected) {
+    if ((socket.auth as any)?.token === token) return socket
+    socket.disconnect()
+  }
   socket = io('/', {
     auth: { token },
     transports: ['websocket', 'polling']

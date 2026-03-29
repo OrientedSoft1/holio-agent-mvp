@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Check, CheckCheck, X, Clock } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Message, MessageMetadata, GroupReadReceipt, MessageReaction } from '../../types'
@@ -18,7 +18,7 @@ import ReactionPicker from '../messages/ReactionPicker'
 import MessageContextMenu from './MessageContextMenu'
 
 export interface MessageData {
-  id: string; content: string; timestamp: string; isMine: boolean; senderName?: string
+  id: string; content: string; timestamp: string; isMine: boolean; senderName?: string; senderColor?: string
   senderType?: 'user' | 'bot' | 'system'; isRead: boolean; isGroup: boolean; readCount?: number
   type: Message['type']; fileUrl?: string | null; metadata?: MessageMetadata | null
   reactions?: MessageReaction[]; scheduledAt?: string | null; currentUserId?: string
@@ -33,7 +33,7 @@ function GroupReadPopup({ messageId, onClose }: { messageId: string; onClose: ()
     try { const { data } = await api.get(`/messages/${messageId}/group-reads`); setReceipts(data) }
     catch { /* ignore */ } finally { setLoading(false) }
   }, [messageId])
-  useState(() => { fetch() })
+  useEffect(() => { fetch() }, [fetch])
   return (
     <div className="absolute right-0 bottom-6 z-50 w-48 rounded-lg border border-gray-100 bg-white p-2 shadow-lg">
       <div className="mb-1 flex items-center justify-between">
@@ -51,15 +51,16 @@ function GroupReadPopup({ messageId, onClose }: { messageId: string; onClose: ()
   )
 }
 
-function BubbleTail({ isMine }: { isMine: boolean }) {
+function BubbleTail({ isMine, isSecretChat }: { isMine: boolean; isSecretChat?: boolean }) {
+  const sentColor = isSecretChat ? '#C6D5BA' : '#E8F5E1'
   return (
     <svg className={cn('absolute bottom-0 h-3 w-3', isMine ? '-right-1.5' : '-left-1.5')} viewBox="0 0 12 12">
-      <path d={isMine ? 'M0 0 L0 12 L12 12 Q4 12 0 0Z' : 'M12 0 L12 12 L0 12 Q8 12 12 0Z'} fill={isMine ? '#C6D5BA' : '#ffffff'} />
+      <path d={isMine ? 'M0 0 L0 12 L12 12 Q4 12 0 0Z' : 'M12 0 L12 12 L0 12 Q8 12 12 0Z'} fill={isMine ? sentColor : '#ffffff'} />
     </svg>
   )
 }
 
-export default function MessageBubble({ message, rawMessage }: MessageBubbleProps) {
+export default function MessageBubble({ message, rawMessage, isSecretChat }: MessageBubbleProps) {
   const [viewerImages, setViewerImages] = useState<string[] | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
   const [showReadPopup, setShowReadPopup] = useState(false)
@@ -67,18 +68,25 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
   const [reactions, setReactions] = useState<MessageReaction[]>(message.reactions ?? [])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const setReplyTo = useChatStore((s) => s.setReplyTo)
+
+  useEffect(() => { setReactions(message.reactions ?? []) }, [message.reactions])
   const setEditing = useChatStore((s) => s.setEditing)
   const removeMessage = useChatStore((s) => s.removeMessage)
 
   const handleContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }) }
   const handleContextAction = async (action: string) => {
     setContextMenu(null)
+    if (action.startsWith('react:')) {
+      await handleReact(action.slice(6))
+      return
+    }
     switch (action) {
       case 'reply': if (rawMessage) setReplyTo(rawMessage); break
       case 'edit': if (rawMessage) setEditing(rawMessage); break
       case 'copy': if (message.content) await navigator.clipboard.writeText(message.content); break
       case 'forward': break
       case 'pin': try { await api.patch(`/messages/${message.id}/pin`) } catch { /* ignore */ } break
+      case 'addToTags': break
       case 'delete': try { await api.delete(`/chats/${rawMessage?.chatId}/messages/${message.id}`); removeMessage(message.id) } catch { /* ignore */ } break
     }
   }
@@ -108,7 +116,7 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
     return (
       <div className={cn('flex', message.isMine ? 'justify-end' : 'justify-start')}>
         <div>
-          {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 text-xs font-medium text-holio-orange">{message.senderName}</p>}
+          {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 text-xs font-medium" style={message.senderColor ? { color: message.senderColor } : undefined}>{message.senderName}</p>}
           <PollMessage poll={poll} isMine={message.isMine} currentUserId={message.currentUserId}
             onVote={async (optionId) => { try { await api.post(`/messages/${message.id}/poll-vote`, { optionId }) } catch { /* ignored */ } }}
             onClose={async () => { try { await api.post(`/messages/${message.id}/poll-close`) } catch { /* ignored */ } }} />
@@ -132,13 +140,13 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
     }
   }
 
-  const readReceiptIcon = message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5 text-holio-orange" /> : <Check className="h-3.5 w-3.5 text-holio-muted" />)
+  const readReceiptIcon = message.isMine && (message.isRead ? <CheckCheck className="h-3.5 w-3.5 text-blue-500" /> : <Check className="h-3.5 w-3.5 text-holio-muted/60" />)
 
   if (message.type === 'videoNote') {
     return (<>
       <div className={cn('flex', message.isMine ? 'justify-end' : 'justify-start')}>
         <div>
-          {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 text-xs font-medium text-holio-orange">{message.senderName}</p>}
+          {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 text-xs font-medium" style={message.senderColor ? { color: message.senderColor } : undefined}>{message.senderName}</p>}
           {renderContent()}
           <div className={cn('mt-1 flex items-center gap-1', message.isMine ? 'justify-end' : 'justify-start')}><span className="text-[11px] text-holio-muted">{message.timestamp}</span>{readReceiptIcon}</div>
           <ReactionBar reactions={reactions} onToggle={handleToggleReaction} onAdd={() => setShowReactionPicker(true)} />
@@ -148,22 +156,24 @@ export default function MessageBubble({ message, rawMessage }: MessageBubbleProp
     </>)
   }
 
+  const sentBubbleBg = isSecretChat ? 'bg-holio-sage/40' : 'bg-[#E8F5E1]'
+
   return (<>
     <div className={cn('group relative mb-1 flex', message.isMine ? 'justify-end' : 'justify-start')} onContextMenu={handleContextMenu} onMouseEnter={() => setShowReactionPicker(true)} onMouseLeave={() => setShowReactionPicker(false)}>
       <div className="relative max-w-[70%]">
         {showReactionPicker && <ReactionPicker onReact={handleReact} isMine={message.isMine} />}
         {isScheduled && (<div className="mb-1 flex items-center gap-1 text-[11px] text-holio-muted"><Clock className="h-3 w-3" /><span>Scheduled for {new Date(message.scheduledAt!).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>)}
         <div className={cn('relative', isMedia ? 'overflow-hidden rounded-2xl' : 'px-3.5 py-2',
-          message.isMine ? (isMedia ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-br-sm bg-holio-sage text-holio-text') : (isMedia ? 'rounded-2xl rounded-bl-sm' : 'rounded-2xl rounded-bl-sm bg-white text-holio-text'))}>
-          {!isMedia && <BubbleTail isMine={message.isMine} />}
+          message.isMine ? (isMedia ? 'rounded-2xl rounded-br-sm' : cn('rounded-2xl rounded-br-sm text-holio-text', sentBubbleBg)) : (isMedia ? 'rounded-2xl rounded-bl-sm' : 'rounded-2xl rounded-bl-sm bg-white text-holio-text shadow-sm'))}>
+          {!isMedia && <BubbleTail isMine={message.isMine} isSecretChat={isSecretChat} />}
           {isMedia ? (
-            <div className={cn('rounded-2xl p-1', message.isMine ? 'rounded-br-sm bg-holio-sage' : 'rounded-bl-sm bg-white')}>
-              {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 px-2 pt-1 text-xs font-medium text-holio-orange">{message.senderName}</p>}
+            <div className={cn('rounded-2xl p-1', message.isMine ? cn('rounded-br-sm', sentBubbleBg) : 'rounded-bl-sm bg-white shadow-sm')}>
+              {!message.isMine && message.isGroup && message.senderName && <p className="mb-1 px-2 pt-1 text-xs font-medium" style={message.senderColor ? { color: message.senderColor } : undefined}>{message.senderName}</p>}
               {renderContent()}
               <div className="mt-1 flex items-center justify-end gap-1 px-2 pb-1 text-holio-muted"><span className="text-[11px]">{message.timestamp}</span>{readReceiptIcon}</div>
             </div>
           ) : (<>
-            {!message.isMine && message.isGroup && message.senderName && <p className="mb-0.5 text-xs font-medium text-holio-orange">{message.senderName}</p>}
+            {!message.isMine && message.isGroup && message.senderName && <p className="mb-0.5 text-xs font-medium" style={message.senderColor ? { color: message.senderColor } : undefined}>{message.senderName}</p>}
             {renderContent()}
             <div className="mt-1 flex items-center justify-end gap-1 text-holio-muted">
               {message.isMine && message.isGroup && (message.readCount ?? 0) > 0 && (

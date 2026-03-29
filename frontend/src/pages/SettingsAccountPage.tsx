@@ -17,23 +17,25 @@ import {
 import { useAuthStore } from '../stores/authStore'
 import { cn } from '../lib/utils'
 
+import OtherAccountView from '../components/settings/OtherAccountView'
+
 const QUICK_LINKS = [
-  { icon: CircleDot, label: 'My Stories' },
-  { icon: Wallet, label: 'Holio Credits', value: '0.00' },
+  { icon: CircleDot, label: 'My Stories', route: '/story' },
+  { icon: Wallet, label: 'Holio Credits', value: '0.00', route: '/holio-pro' },
 ]
 
 const SETTINGS_MENU = [
-  { icon: Phone, label: 'Recent Calls' },
-  { icon: Monitor, label: 'Devices' },
-  { icon: FolderOpen, label: 'Chat Folders' },
+  { icon: Phone, label: 'Recent Calls', route: '/calls' },
+  { icon: Monitor, label: 'Devices', route: '/settings/devices' },
+  { icon: FolderOpen, label: 'Chat Folders', route: '/settings/folders' },
   'separator' as const,
-  { icon: Bell, label: 'Notifications and Sounds' },
-  { icon: Lock, label: 'Privacy and Security' },
-  { icon: Database, label: 'Data and Storage' },
-  { icon: Palette, label: 'Appearance' },
+  { icon: Bell, label: 'Notifications and Sounds', route: '/settings/notifications' },
+  { icon: Lock, label: 'Privacy and Security', route: '/settings' },
+  { icon: Database, label: 'Data and Storage', route: '/settings/data-storage' },
+  { icon: Palette, label: 'Appearance', route: '/settings/chat-appearance' },
 ]
 
-type MenuItem = { icon: typeof Phone; label: string } | 'separator'
+type MenuItem = { icon: typeof Phone; label: string; route: string } | 'separator'
 
 export default function SettingsAccountPage() {
   const navigate = useNavigate()
@@ -104,9 +106,7 @@ export default function SettingsAccountPage() {
           </button>
           {otherAccountsOpen && (
             <div className="border-t border-gray-100 px-4 py-4">
-              <p className="text-xs text-holio-muted">
-                No other accounts linked
-              </p>
+              <OtherAccountView />
             </div>
           )}
         </div>
@@ -118,7 +118,10 @@ export default function SettingsAccountPage() {
             return (
               <div key={item.label}>
                 {i > 0 && <div className="mx-4 border-t border-gray-100" />}
-                <button className="flex w-full items-center gap-3 px-4 py-3">
+                <button
+                  onClick={() => item.route && navigate(item.route)}
+                  className="flex w-full items-center gap-3 px-4 py-3"
+                >
                   <Icon className="h-5 w-5 text-holio-muted" />
                   <span className="flex-1 text-left text-sm text-holio-text">
                     {item.label}
@@ -155,7 +158,10 @@ export default function SettingsAccountPage() {
                 {showTopDivider && (
                   <div className="mx-4 border-t border-gray-100" />
                 )}
-                <button className="flex w-full items-center gap-3 px-4 py-3">
+                <button
+                  onClick={() => navigate(item.route)}
+                  className="flex w-full items-center gap-3 px-4 py-3"
+                >
                   <Icon className="h-5 w-5 text-holio-muted" />
                   <span className="text-sm text-holio-text">{item.label}</span>
                 </button>

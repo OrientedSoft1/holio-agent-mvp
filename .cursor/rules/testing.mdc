@@ -5,6 +5,10 @@ globs: "**/*.spec.ts"
 
 # Testing Rules
 
+## QA Testing Credentials
+- Phone number: **40040056**
+- PIN: **11111**
+
 ## Backend (Jest)
 - Test files co-located with source: `module-name.spec.ts`
 - Unit test services by mocking repository/dependencies

@@ -11,7 +11,6 @@ import {
   UserPlus,
   Pencil,
   Trash2,
-  Ban,
   Bot,
   Plus,
   Settings,
@@ -24,7 +23,13 @@ import {
   Music,
   Mic,
   ImageIcon,
-  Calendar,
+  Phone,
+  AtSign,
+  Share2,
+  BookOpen,
+  AlertTriangle,
+  Video,
+  FileText,
 } from 'lucide-react'
 import { useUiStore } from '../../stores/uiStore'
 import { useChatStore } from '../../stores/chatStore'
@@ -38,8 +43,8 @@ type MediaTab = 'photos' | 'videos' | 'files' | 'music' | 'voice' | 'links' | 'g
 
 const MEDIA_TABS: { id: MediaTab; label: string; icon: typeof Image; apiType: string }[] = [
   { id: 'photos', label: 'Photos', icon: ImageIcon, apiType: 'photo' },
-  { id: 'videos', label: 'Videos', icon: Play, apiType: 'video' },
-  { id: 'files', label: 'Files', icon: File, apiType: 'file' },
+  { id: 'videos', label: 'Videos', icon: Video, apiType: 'video' },
+  { id: 'files', label: 'Files', icon: FileText, apiType: 'file' },
   { id: 'music', label: 'Music', icon: Music, apiType: 'music' },
   { id: 'voice', label: 'Voice', icon: Mic, apiType: 'voice' },
   { id: 'links', label: 'Links', icon: Link, apiType: 'link' },
@@ -58,10 +63,12 @@ interface MediaItem {
 }
 
 const ACTIONS = [
-  { label: 'Add to group', icon: UserPlus, variant: 'default' as const },
+  { label: 'Share this contact', icon: Share2, variant: 'default' as const },
   { label: 'Edit contact', icon: Pencil, variant: 'default' as const },
-  { label: 'Block user', icon: Ban, variant: 'danger' as const },
   { label: 'Delete contact', icon: Trash2, variant: 'danger' as const },
+  { label: 'Add to group', icon: UserPlus, variant: 'default' as const },
+  { label: 'Mention to Story', icon: BookOpen, variant: 'default' as const },
+  { label: 'Block user', icon: AlertTriangle, variant: 'danger' as const },
 ]
 
 const BOT_TYPE_ICON: Record<string, typeof Bot> = {
@@ -85,7 +92,13 @@ const BOT_TYPE_COLOR: Record<string, string> = {
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} Mb`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} Gb`
+}
+
+function formatCount(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
 }
 
 export default function InfoPanel() {
@@ -145,6 +158,7 @@ export default function InfoPanel() {
     bot: '#FF9220',
   }
   const avatarColor = colorMap[activeChat.type] ?? '#6366f1'
+  const chatMembers = (activeChat as any).members as { userId: string }[] | undefined
 
   if (showAdminPanel && isAdmin && isGroupLike) {
     return (
@@ -301,7 +315,7 @@ export default function InfoPanel() {
 
   return (
     <div className="flex h-screen flex-shrink-0 flex-col border-l border-gray-100 bg-white dark:border-[#1E3035] dark:bg-[#152022]" style={{ width: '100%' }}>
-      <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-[#1E3035]">
+      <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4 dark:border-[#1E3035]">
         <h3 className="text-sm font-semibold text-holio-text">
           {isGroupLike ? 'Group Info' : 'Contact Info'}
         </h3>
@@ -313,40 +327,14 @@ export default function InfoPanel() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col items-center px-4 py-6">
-          {activeChat.avatarUrl ? (
-            <img
-              src={activeChat.avatarUrl}
-              alt={displayName}
-              className="h-20 w-20 rounded-full object-cover"
-            />
-          ) : (
-            <div
-              className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
-              style={{ backgroundColor: avatarColor }}
-            >
-              {initials}
-            </div>
-          )}
-          <h4 className="mt-3 text-base font-semibold text-holio-text">
-            {displayName}
-          </h4>
-          <p className="text-xs text-holio-muted">online</p>
-          {!isGroupLike && (
-            <div className="mt-2 flex items-center gap-1 text-[10px] text-holio-muted">
-              <Calendar className="h-3 w-3" />
-              Member since {new Date(activeChat.createdAt).toLocaleDateString([], { month: 'short', year: 'numeric' })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
-          <div className="flex items-center gap-2">
+      <div className="flex-1 overflow-y-auto thin-scrollbar">
+        {/* Notifications toggle */}
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
             {isMuted ? (
-              <BellOff className="h-4 w-4 text-holio-muted" />
+              <BellOff className="h-5 w-5 text-holio-muted" />
             ) : (
-              <Bell className="h-4 w-4 text-holio-muted" />
+              <Bell className="h-5 w-5 text-holio-muted" />
             )}
             <span className="text-sm text-holio-text">Notifications</span>
           </div>
@@ -393,8 +381,69 @@ export default function InfoPanel() {
           </div>
         </div>
 
+        <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
+
+        {/* Contact details */}
+        {!isGroupLike && (
+          <>
+            <div className="space-y-0">
+              <button className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+                <Phone className="h-5 w-5 flex-shrink-0 text-holio-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-holio-text">+1(325)255-5534</p>
+                  <p className="text-[12px] text-holio-muted">Mobile</p>
+                </div>
+              </button>
+              <button className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+                <FileText className="h-5 w-5 flex-shrink-0 text-holio-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-holio-text">{(activeChat as any).bio ?? 'No bio set'}</p>
+                  <p className="text-[12px] text-holio-muted">Bio</p>
+                </div>
+              </button>
+              <button className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+                <AtSign className="h-5 w-5 flex-shrink-0 text-holio-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-holio-text">@{(activeChat as any).username ?? displayName.replace(/\s+/g, '')}</p>
+                  <p className="text-[12px] text-holio-muted">Username</p>
+                </div>
+              </button>
+            </div>
+            <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
+          </>
+        )}
+
+        {/* Avatar + name section */}
+        {isGroupLike && (
+          <>
+            <div className="flex flex-col items-center px-4 py-5">
+              {activeChat.avatarUrl ? (
+                <img
+                  src={activeChat.avatarUrl}
+                  alt={displayName}
+                  className="h-20 w-20 rounded-full object-cover"
+                />
+              ) : (
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white"
+                  style={{ backgroundColor: avatarColor }}
+                >
+                  {initials}
+                </div>
+              )}
+              <h4 className="mt-3 text-base font-semibold text-holio-text">
+                {displayName}
+              </h4>
+              <p className="text-xs text-holio-muted">
+                {(activeChat as any).memberCount ?? chatMembers?.length ?? 0} members
+              </p>
+            </div>
+            <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
+          </>
+        )}
+
         {isGroupLike && isAdmin && (
-          <div className="border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
+          <div className="px-4 py-3">
             <button
               onClick={() => setShowAdminPanel(true)}
               className="flex w-full items-center gap-3 rounded-lg bg-holio-lavender/10 px-3 py-2.5 transition-colors hover:bg-holio-lavender/20"
@@ -406,8 +455,42 @@ export default function InfoPanel() {
           </div>
         )}
 
+        {/* Media statistics grid -- Telegram-style list with count + size */}
+        <div className="px-4 py-3">
+          <div className="space-y-0">
+            {MEDIA_TABS.map((tab) => {
+              const count = mediaCounts[tab.apiType] ?? 0
+              const totalSize = mediaCounts[`${tab.apiType}Size`] ?? 0
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveMediaTab(tab.id)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800',
+                    activeMediaTab === tab.id && 'bg-gray-50 dark:bg-gray-800',
+                  )}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0 text-holio-muted" />
+                  <span className="flex-1 text-sm text-holio-text">{formatCount(count)} {tab.label}</span>
+                  {totalSize > 0 && (
+                    <span className="text-xs text-holio-muted">{formatFileSize(totalSize)}</span>
+                  )}
+                </button>
+              )
+            })}
+            <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
+              <Users className="h-5 w-5 flex-shrink-0 text-holio-muted" />
+              <span className="flex-1 text-sm text-holio-text">Group in common</span>
+              <span className="text-xs text-holio-muted">2</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
+
         {/* Bots in this chat */}
-        <div className="border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
+        <div className="px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
             <h5 className="text-xs font-semibold tracking-wide text-holio-muted uppercase">
               Bots in this chat
@@ -514,54 +597,10 @@ export default function InfoPanel() {
           )}
         </div>
 
-        {/* Shared Media with Tabs */}
-        <div className="border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
-          <h5 className="mb-2 text-xs font-semibold tracking-wide text-holio-muted uppercase">
-            Shared Media
-          </h5>
-          <div className="mb-3 flex gap-1 overflow-x-auto pb-1">
-            {MEDIA_TABS.map((tab) => {
-              const count = mediaCounts[tab.apiType] ?? 0
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveMediaTab(tab.id)}
-                  className={cn(
-                    'flex flex-shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                    activeMediaTab === tab.id
-                      ? 'bg-holio-orange text-white'
-                      : 'bg-gray-100 text-holio-muted hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600',
-                  )}
-                >
-                  {tab.label}
-                  {count > 0 && (
-                    <span className={cn(
-                      'ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px]',
-                      activeMediaTab === tab.id ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600',
-                    )}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-          {renderMediaContent()}
-        </div>
+        <div className="h-px bg-gray-100 dark:bg-[#1E3035]" />
 
-        {/* Groups in common (for non-group chats) */}
-        {!isGroupLike && (
-          <div className="border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
-            <h5 className="mb-2 text-xs font-semibold tracking-wide text-holio-muted uppercase">
-              Groups in Common
-            </h5>
-            <p className="py-2 text-center text-xs text-holio-muted">
-              No groups in common
-            </p>
-          </div>
-        )}
-
-        <div className="border-t border-gray-100 px-4 py-3 dark:border-[#1E3035]">
+        {/* Action buttons */}
+        <div className="px-4 py-2">
           {ACTIONS.map((action) => {
             const Icon = action.icon
             return (
@@ -570,7 +609,7 @@ export default function InfoPanel() {
                 className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <Icon
-                  className={`h-4 w-4 ${action.variant === 'danger' ? 'text-red-500' : 'text-holio-muted'}`}
+                  className={`h-5 w-5 ${action.variant === 'danger' ? 'text-red-500' : 'text-holio-muted'}`}
                 />
                 <span
                   className={`text-sm ${action.variant === 'danger' ? 'text-red-500' : 'text-holio-text'}`}
