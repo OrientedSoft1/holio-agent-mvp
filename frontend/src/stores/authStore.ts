@@ -21,9 +21,9 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  accessToken: localStorage.getItem('accessToken'),
-  refreshToken: localStorage.getItem('refreshToken'),
-  isAuthenticated: !!localStorage.getItem('accessToken'),
+  accessToken: typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null,
+  refreshToken: typeof localStorage !== 'undefined' ? localStorage.getItem('refreshToken') : null,
+  isAuthenticated: typeof localStorage !== 'undefined' && !!localStorage.getItem('accessToken'),
   setAuth: (user, accessToken, refreshToken) => {
     localStorage.setItem('accessToken', accessToken)
     localStorage.setItem('refreshToken', refreshToken)
@@ -32,6 +32,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
+    localStorage.removeItem('activeCompany')
+    localStorage.removeItem('holio-dark-mode')
     set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
+    window.location.href = '/login'
   }
 }))

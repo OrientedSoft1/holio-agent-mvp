@@ -13,9 +13,17 @@ interface CompanyState {
   switchCompany: (company: Company) => void
 }
 
+function safeParse<T>(key: string, fallback: T): T {
+  try {
+    if (typeof localStorage === 'undefined') return fallback
+    const val = localStorage.getItem(key)
+    return val ? JSON.parse(val) : fallback
+  } catch { return fallback }
+}
+
 export const useCompanyStore = create<CompanyState>((set, get) => ({
   companies: [],
-  activeCompany: JSON.parse(localStorage.getItem('activeCompany') || 'null'),
+  activeCompany: safeParse<Company | null>('activeCompany', null),
   loading: false,
   setCompanies: (companies) => set({ companies }),
   setActiveCompany: (company) => {

@@ -34,10 +34,10 @@ export class BotChatMember {
   @JoinColumn({ name: 'chatId' })
   chat: Chat;
 
-  @Column()
-  addedByUserId: string;
+  @Column({ nullable: true })
+  addedByUserId: string | null;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'addedByUserId' })
   addedBy: User;
 
