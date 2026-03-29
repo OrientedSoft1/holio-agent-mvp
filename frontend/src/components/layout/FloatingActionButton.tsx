@@ -1,13 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { Plus, Pencil, Users, Hash } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Pencil, MessageCirclePlus, Users, Megaphone } from 'lucide-react'
 import { cn } from '../../lib/utils'
-
-interface FabAction {
-  id: string
-  icon: typeof Pencil
-  label: string
-  onClick: () => void
-}
 
 interface FloatingActionButtonProps {
   onNewChat?: () => void
@@ -15,86 +8,109 @@ interface FloatingActionButtonProps {
   onNewChannel?: () => void
 }
 
+const FAB_SIZE = 53
+const ACTION_ICON_SIZE = 36
+const ACTION_SPACING = 44
+
+const actions = [
+  { id: 'channel', icon: Megaphone, label: 'New Channel' },
+  { id: 'group', icon: Users, label: 'New Group' },
+  { id: 'chat', icon: MessageCirclePlus, label: 'New Chat' },
+] as const
+
+type ActionId = (typeof actions)[number]['id']
+
 export default function FloatingActionButton({
   onNewChat,
   onNewGroup,
   onNewChannel,
 }: FloatingActionButtonProps) {
-  const [open, setOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const actions: FabAction[] = [
-    { id: 'chat', icon: Pencil, label: 'New Chat', onClick: () => { onNewChat?.(); setOpen(false) } },
-    { id: 'group', icon: Users, label: 'New Group', onClick: () => { onNewGroup?.(); setOpen(false) } },
-    { id: 'channel', icon: Hash, label: 'New Channel', onClick: () => { onNewChannel?.(); setOpen(false) } },
-  ]
+  const close = useCallback(() => setIsOpen(false), [])
+
+  const handlers: Record<ActionId, (() => void) | undefined> = {
+    chat: onNewChat,
+    group: onNewGroup,
+    channel: onNewChannel,
+  }
 
   useEffect(() => {
-    if (!open) return
-    function handleClickOutside(e: MouseEvent) {
+    if (!isOpen) return
+
+    function onMouseDown(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        close()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    function handleEsc(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') close()
     }
-    document.addEventListener('keydown', handleEsc)
-    return () => document.removeEventListener('keydown', handleEsc)
-  }, [open])
+
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isOpen, close])
+
+  const expandedHeight = FAB_SIZE + actions.length * ACTION_SPACING
 
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-20 right-4 z-50 flex flex-col items-end gap-3 md:bottom-6 md:right-6"
+      className="fixed bottom-20 right-4 z-50 md:bottom-6 md:right-6"
     >
-      {/* Expanded action items */}
       <div
-        className={cn(
-          'flex flex-col gap-2 transition-all duration-200',
-          open
-            ? 'pointer-events-auto translate-y-0 opacity-100'
-            : 'pointer-events-none translate-y-2 opacity-0',
-        )}
+        className="relative rounded-full bg-holio-orange shadow-lg transition-[height] duration-300 ease-in-out"
+        style={{
+          width: FAB_SIZE,
+          height: isOpen ? expandedHeight : FAB_SIZE,
+        }}
       >
         {actions.map((action, i) => (
           <button
             key={action.id}
-            onClick={action.onClick}
-            className="flex items-center gap-3 transition-all duration-200"
-            style={{
-              transitionDelay: open ? `${i * 50}ms` : '0ms',
-              opacity: open ? 1 : 0,
-              transform: open ? 'translateY(0) scale(1)' : 'translateY(8px) scale(0.9)',
+            onClick={() => {
+              handlers[action.id]?.()
+              close()
             }}
+            className={cn(
+              'absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full',
+              'transition-all duration-200',
+              isOpen
+                ? 'scale-100 opacity-100'
+                : 'pointer-events-none scale-75 opacity-0',
+            )}
+            style={{
+              width: ACTION_ICON_SIZE,
+              height: ACTION_ICON_SIZE,
+              top: 8 + i * ACTION_SPACING,
+              transitionDelay: isOpen ? `${(i + 1) * 50}ms` : '0ms',
+            }}
+            aria-label={action.label}
           >
-            <span className="whitespace-nowrap rounded-lg bg-holio-dark px-3 py-1.5 text-xs font-medium text-white shadow-lg">
-              {action.label}
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-orange shadow-lg shadow-holio-orange/30">
-              <action.icon className="h-5 w-5 text-white" />
-            </div>
+            <action.icon className="h-5 w-5 text-white" strokeWidth={2} />
           </button>
         ))}
-      </div>
 
-      {/* Main FAB */}
-      <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          'flex h-[53px] w-[53px] items-center justify-center rounded-full bg-holio-orange shadow-lg shadow-holio-orange/30 transition-transform duration-200',
-          open && 'rotate-45',
-        )}
-        aria-label={open ? 'Close menu' : 'Create new'}
-      >
-        <Plus className="h-7 w-7 text-white" strokeWidth={2.5} />
-      </button>
+        <button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="absolute bottom-0 left-0 flex items-center justify-center rounded-full transition-transform duration-300"
+          style={{ width: FAB_SIZE, height: FAB_SIZE }}
+          aria-label={isOpen ? 'Close menu' : 'Create new'}
+        >
+          <Pencil
+            className={cn(
+              'h-6 w-6 text-white transition-transform duration-300',
+              isOpen && 'rotate-90 scale-90',
+            )}
+            strokeWidth={2.5}
+          />
+        </button>
+      </div>
     </div>
   )
 }
