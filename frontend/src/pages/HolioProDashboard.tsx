@@ -1,8 +1,166 @@
-import { useState } from 'react'
-import { Crown, ArrowLeft, ChevronRight } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { ArrowLeft, Star, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-const U = [{ l: 'File Storage', u: 1.2, t: 4, x: 'GB' }, { l: 'Messages Translated', u: 84, t: 500, x: '' }, { l: 'Voice-to-Text', u: 12, t: 60, x: 'min' }]
-const FT = [{ id: 'ps', l: 'Premium Stickers', d: true }, { id: 'ct', l: 'Custom Themes', d: true }, { id: 'tr', l: 'Translation', d: false }]
-const TX = [{ id: '1', dt: '2026-03-01', d: 'Holio Pro - Monthly', a: '$3.99' }, { id: '2', dt: '2026-02-01', d: 'Holio Pro - Monthly', a: '$3.99' }, { id: '3', dt: '2026-01-01', d: 'Holio Pro - Monthly', a: '$3.99' }]
-export default function HolioProDashboard() { const nav = useNavigate(); const [f, sf] = useState<Record<string,boolean>>(Object.fromEntries(FT.map((x) => [x.id, x.d]))); const tg = (id: string) => sf((p) => ({ ...p, [id]: !p[id] })); return (<div className="flex min-h-screen flex-col bg-holio-offwhite"><div className="flex h-14 items-center gap-3 bg-white px-4"><button onClick={() => nav(-1)} className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted hover:bg-gray-100"><ArrowLeft className="h-5 w-5" /></button><Crown className="h-5 w-5 text-holio-orange" /><h1 className="text-base font-semibold text-holio-text">Holio Pro</h1></div><div className="flex-1 overflow-y-auto px-4 py-6"><div className="mx-auto max-w-lg space-y-4"><div className="rounded-2xl bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><div className="flex items-center gap-2"><h2 className="text-lg font-bold text-holio-text">Holio Pro</h2><span className="rounded-full bg-holio-sage px-2.5 py-0.5 text-xs font-semibold text-green-800">Active</span></div><p className="mt-1 text-sm text-holio-muted">Monthly plan</p></div><Crown className="h-10 w-10 text-holio-orange opacity-30" /></div><div className="mt-3 rounded-lg bg-gray-50 px-3 py-2"><p className="text-xs text-holio-muted">Next billing date</p><p className="text-sm font-medium text-holio-text">April 1, 2026</p></div></div><div className="rounded-2xl bg-white p-5 shadow-sm"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-holio-muted">Usage</h3><div className="space-y-4">{U.map((s) => { const pc = Math.min((s.u/s.t)*100, 100); return (<div key={s.l}><div className="flex items-center justify-between text-sm"><span className="text-holio-text">{s.l}</span><span className="text-holio-muted">{s.u}{s.x} / {s.t}{s.x}</span></div><div className="mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100"><div className={cn('h-full rounded-full', pc > 80 ? 'bg-red-400' : 'bg-holio-orange')} style={{ width: `${pc}%` }} /></div></div>)})}</div></div><div className="rounded-2xl bg-white p-5 shadow-sm"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-holio-muted">Features</h3><div className="space-y-3">{FT.map((x) => (<div key={x.id} className="flex items-center justify-between"><span className="text-sm text-holio-text">{x.l}</span><button onClick={() => tg(x.id)} className={cn('relative h-6 w-11 rounded-full', f[x.id] ? 'bg-holio-orange' : 'bg-gray-300')}><span className={cn('absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow', f[x.id] ? 'translate-x-5' : '')} /></button></div>))}</div></div><div className="rounded-2xl bg-white p-5 shadow-sm"><button className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 hover:bg-gray-50"><span className="text-sm font-medium text-holio-text">Manage Subscription</span><ChevronRight className="h-4 w-4 text-holio-muted" /></button><button className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-red-500 hover:bg-red-50"><span className="text-sm font-medium">Cancel Subscription</span><ChevronRight className="h-4 w-4" /></button></div><div className="rounded-2xl bg-white p-5 shadow-sm"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-holio-muted">History</h3><div className="space-y-2">{TX.map((t) => (<div key={t.id} className="flex items-center justify-between rounded-lg px-2 py-2"><div><p className="text-sm text-holio-text">{t.d}</p><p className="text-xs text-holio-muted">{new Date(t.dt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</p></div><span className="text-sm font-medium text-holio-text">{t.a}</span></div>))}</div></div></div></div></div>) }
+
+const INTEGRATIONS = [
+  { name: 'Slack', icon: '💬', color: 'bg-purple-100' },
+  { name: 'Google Drive', icon: '📁', color: 'bg-blue-100' },
+  { name: 'Notion', icon: '📝', color: 'bg-gray-100' },
+]
+
+const CATEGORIES = [
+  { name: 'Work', count: 12 },
+  { name: 'Family', count: 5 },
+  { name: 'Clients', count: 23 },
+  { name: 'VIP', count: 8 },
+]
+
+const TAGS = [
+  { emoji: '🔥', label: 'Urgent', variant: 'lavender' as const },
+  { emoji: '📌', label: 'Pinned', variant: 'sage' as const },
+  { emoji: '✅', label: 'Done', variant: 'sage' as const },
+  { emoji: '⏳', label: 'Pending', variant: 'lavender' as const },
+  { emoji: '💡', label: 'Idea', variant: 'lavender' as const },
+  { emoji: '🐛', label: 'Bug', variant: 'sage' as const },
+]
+
+export default function HolioProDashboard() {
+  const nav = useNavigate()
+
+  return (
+    <div className="flex min-h-screen flex-col bg-holio-offwhite">
+      {/* Header */}
+      <div className="flex h-14 items-center gap-3 bg-white px-4 shadow-sm">
+        <button
+          onClick={() => nav(-1)}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted hover:bg-gray-100"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <Star className="h-5 w-5 fill-holio-orange text-holio-orange" />
+        <h1 className="text-base font-bold text-holio-text">Holio Pro</h1>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="mx-auto max-w-lg space-y-4">
+          {/* User Card */}
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-holio-lavender/40 text-lg font-bold text-holio-text">
+                  SK
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-holio-orange">
+                  <Star className="h-3 w-3 fill-white text-white" />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-bold text-holio-text">
+                  Stein Kvarme
+                </h2>
+                <button className="mt-0.5 text-sm font-medium text-holio-orange hover:underline">
+                  Change Emoji Status
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Subscription Progress */}
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-holio-text">
+                Subscription
+              </p>
+              <span className="text-xs text-holio-muted">Monthly</span>
+            </div>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-full w-[77%] rounded-full bg-holio-orange" />
+            </div>
+            <p className="mt-2 text-xs text-holio-muted">
+              23 days left in current billing cycle
+            </p>
+          </div>
+
+          {/* Upsell Banner */}
+          <button className="flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm transition-colors hover:bg-holio-orange/5">
+            <span className="text-sm font-semibold text-holio-orange">
+              15% discount for next month
+            </span>
+            <ChevronRight className="h-4 w-4 flex-shrink-0 text-holio-orange" />
+          </button>
+
+          {/* Integrations */}
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-holio-text">
+                Holio Integrations
+              </h3>
+              <button className="text-sm font-medium text-holio-orange hover:underline">
+                Manage
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {INTEGRATIONS.map((svc) => (
+                <button
+                  key={svc.name}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 px-3 py-4 transition-colors hover:border-holio-lavender hover:bg-holio-lavender/10"
+                >
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg text-xl ${svc.color}`}
+                  >
+                    {svc.icon}
+                  </span>
+                  <span className="text-xs font-medium text-holio-text">
+                    {svc.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Contact Categories */}
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold text-holio-text">
+              Contact Categories
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {CATEGORIES.map((cat) => (
+                <div
+                  key={cat.name}
+                  className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3"
+                >
+                  <span className="text-sm font-medium text-holio-text">
+                    {cat.name}
+                  </span>
+                  <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-holio-lavender/30 px-2 text-xs font-semibold text-holio-text">
+                    {cat.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Tags */}
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold text-holio-text">
+              Message Tags
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {TAGS.map((tag) => (
+                <span
+                  key={tag.label}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-holio-text ${
+                    tag.variant === 'lavender'
+                      ? 'bg-holio-lavender/40'
+                      : 'bg-holio-sage/50'
+                  }`}
+                >
+                  {tag.emoji} {tag.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

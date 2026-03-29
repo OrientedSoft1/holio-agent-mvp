@@ -8,8 +8,26 @@ import SelectCompanyPage from './pages/SelectCompanyPage'
 import CompanySettingsPage from './pages/CompanySettingsPage'
 import ChatPage from './pages/ChatPage'
 import BotsPage from './pages/BotsPage'
+import IntegrationsPage from './pages/IntegrationsPage'
 import SettingsPage from './pages/SettingsPage'
 import EditProfilePage from './pages/EditProfilePage'
+import StoryPage from './pages/StoryPage'
+import SettingsAccountPage from './pages/SettingsAccountPage'
+import SettingsNotificationsPage from './pages/SettingsNotificationsPage'
+import SettingsChatAppearancePage from './pages/SettingsChatAppearancePage'
+import SavedMessagesPage from './pages/SavedMessagesPage'
+import RecentCallsPage from './pages/RecentCallsPage'
+import BlockedContactsPage from './pages/BlockedContactsPage'
+import InviteFriendsPage from './pages/InviteFriendsPage'
+import NearbyPeoplePage from './pages/NearbyPeoplePage'
+import SettingsDataStoragePage from './pages/SettingsDataStoragePage'
+import SettingsDevicesPage from './pages/SettingsDevicesPage'
+import SettingsFoldersPage from './pages/SettingsFoldersPage'
+import UserProfilePage from './pages/UserProfilePage'
+import ContactsListPage from './pages/ContactsListPage'
+import NewContactPage from './pages/NewContactPage'
+import HolioProDashboard from './pages/HolioProDashboard'
+import HolioProPage from './pages/HolioProPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -24,62 +42,26 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/2fa" element={<TwoFactorPage />} />
-        <Route
-          path="/profile-setup"
-          element={
-            <ProtectedRoute>
-              <ProfileSetupPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/select-company"
-          element={
-            <ProtectedRoute>
-              <SelectCompanyPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/company-settings"
-          element={
-            <ProtectedRoute>
-              <CompanySettingsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/bots"
-          element={
-            <ProtectedRoute>
-              <BotsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <SettingsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/edit-profile"
-          element={
-            <ProtectedRoute>
-              <EditProfilePage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/profile-setup" element={<ProtectedRoute><ProfileSetupPage /></ProtectedRoute>} />
+        <Route path="/select-company" element={<ProtectedRoute><SelectCompanyPage /></ProtectedRoute>} />
+        <Route path="/company-settings" element={<ProtectedRoute><CompanySettingsPage /></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+        <Route path="/bots" element={<ProtectedRoute><BotsPage /></ProtectedRoute>} />
+        <Route path="/settings/account" element={<ProtectedRoute><SettingsAccountPage /></ProtectedRoute>} />
+        <Route path="/settings/notifications" element={<ProtectedRoute><SettingsNotificationsPage /></ProtectedRoute>} />
+        <Route path="/settings/chat-appearance" element={<ProtectedRoute><SettingsChatAppearancePage /></ProtectedRoute>} />
+        <Route path="/settings/data-storage" element={<ProtectedRoute><SettingsDataStoragePage /></ProtectedRoute>} />
+        <Route path="/settings/devices" element={<ProtectedRoute><SettingsDevicesPage /></ProtectedRoute>} />
+        <Route path="/settings/folders" element={<ProtectedRoute><SettingsFoldersPage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/edit-profile" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+        <Route path="/profile/:userId" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
+        <Route path="/contacts/new" element={<ProtectedRoute><NewContactPage /></ProtectedRoute>} />
+        <Route path="/contacts" element={<ProtectedRoute><ContactsListPage /></ProtectedRoute>} />
+        <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
+        <Route path="/story" element={<ProtectedRoute><StoryPage /></ProtectedRoute>} />
+        <Route path="/holio-pro/dashboard" element={<ProtectedRoute><HolioProDashboard /></ProtectedRoute>} />
+        <Route path="/holio-pro" element={<ProtectedRoute><HolioProPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </BrowserRouter>
