@@ -1,7 +1,8 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Query,
   Body,
@@ -11,6 +12,8 @@
   UploadedFile,
   UploadedFiles,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -47,13 +50,20 @@ function fileFilter(
     file.mimetype.startsWith(prefix),
   );
   if (!allowed) {
-    cb(new BadRequestException(`File type ${file.mimetype} is not allowed`), false);
+    cb(
+      new BadRequestException(`File type ${file.mimetype} is not allowed`),
+      false,
+    );
     return;
   }
   cb(null, true);
 }
 
-function makeFilename(_req: unknown, file: Express.Multer.File, cb: (err: Error | null, name: string) => void) {
+function makeFilename(
+  _req: unknown,
+  file: Express.Multer.File,
+  cb: (err: Error | null, name: string) => void,
+) {
   const ext = file.originalname.split('.').pop();
   cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
 }
@@ -142,13 +152,21 @@ export class UploadsController {
         destination: 'uploads',
         filename: (_req, file, cb) => {
           const ext = file.originalname.split('.').pop();
-          cb(null, `avatar-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
+          cb(
+            null,
+            `avatar-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`,
+          );
         },
       }),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
-          cb(new BadRequestException('Only image files are allowed for avatars') as any, false);
+          cb(
+            new BadRequestException(
+              'Only image files are allowed for avatars',
+            ) as unknown as Error,
+            false,
+          );
           return;
         }
         cb(null, true);
@@ -165,6 +183,108 @@ export class UploadsController {
     return this.uploadsService.saveRecord(file, user.id, 'avatar');
   }
 
+  @Post('company-logo')
+  @ApiOperation({ summary: 'Upload a company logo image' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: 'uploads',
+        filename: (_req, file, cb) => {
+          const ext = file.originalname.split('.').pop();
+          cb(
+            null,
+            `logo-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`,
+          );
+        },
+      }),
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        if (
+          !file.mimetype.startsWith('image/') &&
+          file.mimetype !== 'image/svg+xml'
+        ) {
+          cb(
+            new BadRequestException(
+              'Only image files are allowed for company logos',
+            ) as unknown as Error,
+            false,
+          );
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadCompanyLogo(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: User,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    return this.uploadsService.saveRecord(file, user.id, 'company-logo');
+  }
+
+  @Post('story')
+  @ApiOperation({ summary: 'Upload story media (image or video)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: 'uploads',
+        filename: (_req, file, cb) => {
+          const ext = file.originalname.split('.').pop();
+          cb(
+            null,
+            `story-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`,
+          );
+        },
+      }),
+      limits: { fileSize: MAX_FILE_SIZE },
+      fileFilter: (_req, file, cb) => {
+        if (
+          !file.mimetype.startsWith('image/') &&
+          !file.mimetype.startsWith('video/')
+        ) {
+          cb(
+            new BadRequestException(
+              'Only image and video files are allowed for stories',
+            ) as unknown as Error,
+            false,
+          );
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadStory(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: User,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    return this.uploadsService.saveRecord(file, user.id, 'story');
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get upload metadata by ID' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -175,6 +295,7 @@ export class UploadsController {
   @ApiOperation({ summary: 'List uploads for the current user' })
   async findMine(
     @CurrentUser() user: User,
+    @Query('type') type?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -182,6 +303,17 @@ export class UploadsController {
       user.id,
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 20,
+      type,
     );
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete an upload' })
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.uploadsService.remove(user.id, id);
   }
 }

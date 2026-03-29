@@ -32,7 +32,7 @@ export class Contact {
   @JoinColumn({ name: 'contactUserId' })
   contactUser: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nickname: string | null;
 
   @Column({ default: false })

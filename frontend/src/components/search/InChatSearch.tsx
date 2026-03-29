@@ -81,7 +81,8 @@ export default function InChatSearch({ chatId, open, onClose, onNavigateToMessag
           className="flex-1 text-sm text-holio-text outline-none placeholder:text-holio-muted"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              e.shiftKey ? handlePrev() : handleNext()
+              if (e.shiftKey) handlePrev()
+              else handleNext()
             }
             if (e.key === 'Escape') onClose()
           }}

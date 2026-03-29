@@ -1,108 +1,70 @@
-﻿import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  ChevronLeft,
   ChevronRight,
-  BookOpen,
+  CircleDot,
   Wallet,
   Phone,
-  Smartphone,
+  Monitor,
   FolderOpen,
   Bell,
-  Shield,
+  Lock,
   Database,
   Palette,
   QrCode,
   User as UserIcon,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import { useSubscriptionStore } from '../stores/subscriptionStore'
 import { cn } from '../lib/utils'
 
-interface QuickLink {
-  icon: typeof Phone
-  label: string
-  value?: string
-  route: string
-}
+import OtherAccountView from '../components/settings/OtherAccountView'
 
-interface SettingsItem {
-  icon: typeof Phone
-  label: string
-  route: string
-}
-
-const QUICK_LINKS: QuickLink[] = [
-  { icon: BookOpen, label: 'My Stories', route: '/stories' },
-  { icon: Wallet, label: 'Wallet', value: '0.00', route: '/wallet' },
-]
-
-const SETTINGS_GROUP_1: SettingsItem[] = [
+const SETTINGS_MENU = [
   { icon: Phone, label: 'Recent Calls', route: '/calls' },
-  { icon: Smartphone, label: 'Devices', route: '/settings/devices' },
+  { icon: Monitor, label: 'Devices', route: '/settings/devices' },
   { icon: FolderOpen, label: 'Chat Folders', route: '/settings/folders' },
-]
-
-const SETTINGS_GROUP_2: SettingsItem[] = [
+  'separator' as const,
   { icon: Bell, label: 'Notifications and Sounds', route: '/settings/notifications' },
-  { icon: Shield, label: 'Privacy and Security', route: '/settings/privacy' },
+  { icon: Lock, label: 'Privacy and Security', route: '/settings' },
   { icon: Database, label: 'Data and Storage', route: '/settings/data-storage' },
   { icon: Palette, label: 'Appearance', route: '/settings/chat-appearance' },
 ]
 
-function SettingsRow({
-  icon: Icon,
-  label,
-  value,
-  onClick,
-}: {
-  icon: typeof Phone
-  label: string
-  value?: string
-  onClick?: () => void
-}) {
-  return (
-    <button onClick={onClick} className="flex w-full items-center gap-3 px-4 py-3">
-      <Icon className="h-5 w-5 text-holio-muted" />
-      <span className="flex-1 text-left text-sm text-holio-text">{label}</span>
-      {value && (
-        <span className="text-sm font-medium text-holio-orange">{value}</span>
-      )}
-      <ChevronRight className="h-4 w-4 text-holio-muted" />
-    </button>
-  )
-}
-
-function SettingsGroup({ items }: { items: SettingsItem[] }) {
-  const navigate = useNavigate()
-
-  return (
-    <div className="mx-4 rounded-2xl bg-white">
-      {items.map((item, i) => (
-        <div key={item.label}>
-          {i > 0 && <div className="mx-4 border-t border-gray-100" />}
-          <SettingsRow
-            icon={item.icon}
-            label={item.label}
-            onClick={() => navigate(item.route)}
-          />
-        </div>
-      ))}
-    </div>
-  )
-}
+type MenuItem = { icon: typeof Phone; label: string; route: string } | 'separator'
 
 export default function SettingsAccountPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const subscription = useSubscriptionStore((s) => s.subscription)
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription)
   const [otherAccountsOpen, setOtherAccountsOpen] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+
+  useEffect(() => { fetchSubscription() }, [fetchSubscription])
+
+  const quickLinks = [
+    { icon: CircleDot, label: 'My Stories', route: '/story' },
+    { icon: Wallet, label: 'Holio Credits', value: subscription ? `${subscription.daysLeft}d left` : '0.00', route: '/holio-pro' },
+  ]
 
   const name =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'No name'
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-lg font-semibold text-holio-text">Account</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <ChevronLeft className="h-5 w-5 text-holio-text" />
+          </button>
+          <h1 className="text-lg font-medium text-holio-text">Account</h1>
+        </div>
         <button
           onClick={() => navigate('/edit-profile')}
           className="text-sm font-medium text-holio-orange"
@@ -111,7 +73,7 @@ export default function SettingsAccountPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-8">
+      <div className="flex-1 overflow-y-auto">
         {/* Profile card */}
         <div className="mx-4 rounded-2xl bg-white p-4">
           <div className="flex items-center gap-3">
@@ -135,7 +97,7 @@ export default function SettingsAccountPage() {
                 <p className="text-sm text-holio-muted">@{user.username}</p>
               )}
             </div>
-            <button className="flex-shrink-0 p-1 text-holio-orange">
+            <button onClick={() => setShowQr(true)} className="flex-shrink-0 p-1 text-holio-orange">
               <QrCode className="h-5 w-5" />
             </button>
           </div>
@@ -144,7 +106,7 @@ export default function SettingsAccountPage() {
         {/* Other Accounts */}
         <div className="mx-4 mt-3 rounded-2xl bg-white">
           <button
-            onClick={() => setOtherAccountsOpen((v) => !v)}
+            onClick={() => setOtherAccountsOpen(!otherAccountsOpen)}
             className="flex w-full items-center justify-between px-4 py-3"
           >
             <span className="text-sm font-medium text-holio-text">
@@ -159,38 +121,86 @@ export default function SettingsAccountPage() {
           </button>
           {otherAccountsOpen && (
             <div className="border-t border-gray-100 px-4 py-4">
-              <p className="text-xs text-holio-muted">
-                No other accounts linked
-              </p>
+              <OtherAccountView />
             </div>
           )}
         </div>
 
         {/* Quick links */}
         <div className="mx-4 mt-3 rounded-2xl bg-white">
-          {QUICK_LINKS.map((item, i) => (
-            <div key={item.label}>
-              {i > 0 && <div className="mx-4 border-t border-gray-100" />}
-              <SettingsRow
-                icon={item.icon}
-                label={item.label}
-                value={item.value}
-                onClick={() => navigate(item.route)}
-              />
-            </div>
-          ))}
+          {quickLinks.map((item, i) => {
+            const Icon = item.icon
+            return (
+              <div key={item.label}>
+                {i > 0 && <div className="mx-4 border-t border-gray-100" />}
+                <button
+                  onClick={() => item.route && navigate(item.route)}
+                  className="flex w-full items-center gap-3 px-4 py-3"
+                >
+                  <Icon className="h-5 w-5 text-holio-muted" />
+                  <span className="flex-1 text-left text-sm text-holio-text">
+                    {item.label}
+                  </span>
+                  {item.value && (
+                    <span className="text-sm font-medium text-holio-orange">
+                      {item.value}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )
+          })}
         </div>
 
-        {/* Settings group 1: Calls, Devices, Folders */}
-        <div className="mt-6">
-          <SettingsGroup items={SETTINGS_GROUP_1} />
+        {/* Settings section label */}
+        <p className="ml-4 mt-5 mb-1.5 text-xs font-semibold uppercase tracking-wider text-holio-muted">
+          Settings
+        </p>
+
+        {/* Settings menu */}
+        <div className="mx-4 rounded-2xl bg-white">
+          {(SETTINGS_MENU as MenuItem[]).map((item, i) => {
+            if (item === 'separator') {
+              return (
+                <div key={`sep-${i}`} className="mx-4 border-t border-gray-100" />
+              )
+            }
+            const Icon = item.icon
+            const prev = SETTINGS_MENU[i - 1]
+            const showTopDivider = i > 0 && prev !== 'separator'
+            return (
+              <div key={item.label}>
+                {showTopDivider && (
+                  <div className="mx-4 border-t border-gray-100" />
+                )}
+                <button
+                  onClick={() => navigate(item.route)}
+                  className="flex w-full items-center gap-3 px-4 py-3"
+                >
+                  <Icon className="h-5 w-5 text-holio-muted" />
+                  <span className="text-sm text-holio-text">{item.label}</span>
+                </button>
+              </div>
+            )
+          })}
         </div>
 
-        {/* Settings group 2: Notifications, Privacy, Data, Appearance */}
-        <div className="mt-3">
-          <SettingsGroup items={SETTINGS_GROUP_2} />
-        </div>
+        <div className="h-8" />
       </div>
+
+      {showQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowQr(false)}>
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h4 className="mb-4 text-base font-semibold text-holio-text">My QR Code</h4>
+            <div className="mx-auto mb-4 flex h-48 w-48 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50">
+              <QrCode className="h-16 w-16 text-holio-muted/40" />
+            </div>
+            <p className="mb-2 text-sm font-medium text-holio-text">@{user?.username ?? 'user'}</p>
+            <p className="text-xs text-holio-muted">Others can scan this code to add you on Holio</p>
+            <button onClick={() => setShowQr(false)} className="mt-4 w-full rounded-xl bg-gray-100 py-2.5 text-sm font-medium text-holio-text hover:bg-gray-200">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

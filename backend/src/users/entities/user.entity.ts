@@ -55,6 +55,9 @@ export class User {
   })
   privacySettings: Record<string, unknown>;
 
+  @Column({ type: 'jsonb', default: {} })
+  settings: Record<string, unknown>;
+
   @CreateDateColumn()
   createdAt: Date;
 

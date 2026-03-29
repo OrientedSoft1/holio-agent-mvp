@@ -1,28 +1,23 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useSettingsStore } from '../stores/settingsStore'
 
 const SOUNDS = ['Default', 'Ding', 'Note', 'Chime', 'Bell', 'None']
 
 export default function SettingsNotificationsPage() {
   const navigate = useNavigate()
-  const [msgAlert, setMsgAlert] = useState(true)
-  const [msgPreview, setMsgPreview] = useState(true)
-  const [msgSound, setMsgSound] = useState('Default')
-  const [grpAlert, setGrpAlert] = useState(true)
-  const [grpPreview, setGrpPreview] = useState(true)
-  const [grpSound, setGrpSound] = useState('Default')
-  const [inAppSounds, setInAppSounds] = useState(true)
-  const [inAppVibrate, setInAppVibrate] = useState(true)
-  const [inAppPreview, setInAppPreview] = useState(true)
-  const [contactJoined, setContactJoined] = useState(true)
-  const [pinnedMessages, setPinnedMessages] = useState(true)
+  const notifs = useSettingsStore((s) => s.notifications)
+  const fetchNotificationSettings = useSettingsStore((s) => s.fetchNotificationSettings)
+  const updateNotificationSettings = useSettingsStore((s) => s.updateNotificationSettings)
+
+  useEffect(() => { fetchNotificationSettings() }, [fetchNotificationSettings])
 
   return (
-    <div className="flex h-screen flex-col bg-[#FCFCF8]">
+    <div className="flex h-full flex-col bg-holio-offwhite">
       <div className="flex items-center gap-3 px-4 py-3">
-        <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100">
+        <button onClick={() => navigate('/settings')} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ChevronLeft className="h-5 w-5 text-holio-text" />
         </button>
         <h1 className="text-lg font-semibold text-holio-text">Notifications</h1>
@@ -30,37 +25,37 @@ export default function SettingsNotificationsPage() {
 
       <div className="flex-1 overflow-y-auto pb-8">
         <SectionLabel>Message Notifications</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
-          <SettingRow label="Alerts"><Toggle value={msgAlert} onChange={setMsgAlert} /></SettingRow>
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
+          <SettingRow label="Alerts"><Toggle value={notifs.msgAlert} onChange={(v) => updateNotificationSettings({ msgAlert: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Message Preview"><Toggle value={msgPreview} onChange={setMsgPreview} /></SettingRow>
+          <SettingRow label="Message Preview"><Toggle value={notifs.msgPreview} onChange={(v) => updateNotificationSettings({ msgPreview: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Sound"><SoundSelect value={msgSound} onChange={setMsgSound} /></SettingRow>
+          <SettingRow label="Sound"><SoundSelect value={notifs.msgSound} onChange={(v) => updateNotificationSettings({ msgSound: v })} /></SettingRow>
         </div>
 
         <SectionLabel>Group Notifications</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
-          <SettingRow label="Alerts"><Toggle value={grpAlert} onChange={setGrpAlert} /></SettingRow>
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
+          <SettingRow label="Alerts"><Toggle value={notifs.grpAlert} onChange={(v) => updateNotificationSettings({ grpAlert: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Message Preview"><Toggle value={grpPreview} onChange={setGrpPreview} /></SettingRow>
+          <SettingRow label="Message Preview"><Toggle value={notifs.grpPreview} onChange={(v) => updateNotificationSettings({ grpPreview: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Sound"><SoundSelect value={grpSound} onChange={setGrpSound} /></SettingRow>
+          <SettingRow label="Sound"><SoundSelect value={notifs.grpSound} onChange={(v) => updateNotificationSettings({ grpSound: v })} /></SettingRow>
         </div>
 
         <SectionLabel>In-App Notifications</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
-          <SettingRow label="Sounds"><Toggle value={inAppSounds} onChange={setInAppSounds} /></SettingRow>
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
+          <SettingRow label="Sounds"><Toggle value={notifs.inAppSounds} onChange={(v) => updateNotificationSettings({ inAppSounds: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Vibrate"><Toggle value={inAppVibrate} onChange={setInAppVibrate} /></SettingRow>
+          <SettingRow label="Vibrate"><Toggle value={notifs.inAppVibrate} onChange={(v) => updateNotificationSettings({ inAppVibrate: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Message Preview"><Toggle value={inAppPreview} onChange={setInAppPreview} /></SettingRow>
+          <SettingRow label="Message Preview"><Toggle value={notifs.inAppPreview} onChange={(v) => updateNotificationSettings({ inAppPreview: v })} /></SettingRow>
         </div>
 
         <SectionLabel>Other</SectionLabel>
-        <div className="mx-4 rounded-2xl bg-white">
-          <SettingRow label="Contact Joined Holio"><Toggle value={contactJoined} onChange={setContactJoined} /></SettingRow>
+        <div className="mx-4 rounded-2xl bg-white dark:bg-gray-900">
+          <SettingRow label="Contact Joined Holio"><Toggle value={notifs.contactJoined} onChange={(v) => updateNotificationSettings({ contactJoined: v })} /></SettingRow>
           <Divider />
-          <SettingRow label="Pinned Messages"><Toggle value={pinnedMessages} onChange={setPinnedMessages} /></SettingRow>
+          <SettingRow label="Pinned Messages"><Toggle value={notifs.pinnedMessages} onChange={(v) => updateNotificationSettings({ pinnedMessages: v })} /></SettingRow>
         </div>
       </div>
     </div>
@@ -72,7 +67,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Divider() {
-  return <div className="mx-4 border-t border-gray-100" />
+  return <div className="mx-4 border-t border-gray-100 dark:border-gray-800" />
 }
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -86,7 +81,7 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button onClick={() => onChange(!value)} className={cn('relative h-6 w-11 rounded-full', value ? 'bg-[#FF9220]' : 'bg-gray-300')}>
+    <button onClick={() => onChange(!value)} className={cn('relative h-6 w-11 rounded-full', value ? 'bg-holio-orange' : 'bg-gray-300 dark:bg-gray-600')}>
       <span className={cn('absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', value ? 'translate-x-5' : '')} />
     </button>
   )
@@ -94,7 +89,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 
 function SoundSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-holio-text outline-none focus:border-[#FF9220]">
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-holio-text dark:text-holio-text outline-none focus:border-holio-orange">
       {SOUNDS.map((s) => <option key={s} value={s}>{s}</option>)}
     </select>
   )

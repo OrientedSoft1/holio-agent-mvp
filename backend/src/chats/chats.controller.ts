@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -70,5 +72,53 @@ export class ChatsController {
     @CurrentUser() user: User,
   ) {
     return this.chatsService.removeMember(id, userId, user.id);
+  }
+
+  @Get(':id/members')
+  @ApiOperation({ summary: 'List chat members' })
+  async getMembers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.chatsService.checkMembership(id, user.id);
+    return this.chatsService.getMembers(id);
+  }
+
+  @Put(':id/unarchive')
+  @ApiOperation({ summary: 'Unarchive a chat' })
+  async unarchive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.chatsService.setArchived(id, user.id, false);
+  }
+
+  @Post(':id/accept')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept a secret chat invitation' })
+  acceptSecretChat(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.chatsService.acceptSecretChat(id, user.id);
+  }
+
+  @Put(':id/archive')
+  @ApiOperation({ summary: 'Archive a chat' })
+  async archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.chatsService.setArchived(id, user.id, true);
+  }
+
+  @Patch(':id/self-destruct')
+  @ApiOperation({ summary: 'Set self-destruct timer for a secret chat' })
+  async setSelfDestruct(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body('timer') timer: number,
+  ) {
+    return this.chatsService.setSelfDestructTimer(id, user.id, timer);
   }
 }

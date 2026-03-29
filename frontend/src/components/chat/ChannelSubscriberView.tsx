@@ -1,88 +1,51 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import {
-  ChevronLeft,
   MoreVertical,
   BellOff,
+  Bell,
   Pin,
-  Eye,
   MessageSquare,
   ChevronDown,
 } from 'lucide-react'
-import { cn } from '../../lib/utils'
-
-interface ChannelPost {
-  id: string
-  content: string
-  timestamp: string
-  viewCount: number
-  commentCount: number
-}
+import { useChatStore } from '../../stores/chatStore'
+import { useUiStore } from '../../stores/uiStore'
+import api from '../../services/api.service'
+import type { Chat, Message } from '../../types'
 
 interface ChannelSubscriberViewProps {
-  channelName: string
-  channelAvatar?: string | null
-  subscriberCount: number
-  isMuted?: boolean
-  pinnedMessage?: string
-  posts?: ChannelPost[]
-  onBack?: () => void
-  onInfoClick?: () => void
-  onToggleMute?: () => void
-  onLeaveComment?: (postId: string) => void
+  chat: Chat
 }
 
-const MOCK_POSTS: ChannelPost[] = [
-  {
-    id: '1',
-    content:
-      'We are excited to announce our Q2 product roadmap! Key highlights include a revamped dashboard, improved analytics, and new integrations with third-party tools. Stay tuned for weekly updates.',
-    timestamp: '10:32 AM',
-    viewCount: 1248,
-    commentCount: 34,
-  },
-  {
-    id: '2',
-    content:
-      'Reminder: All-hands meeting tomorrow at 3 PM CET. We will cover the latest company metrics, upcoming hiring plans, and a live demo of the new AI agent features.',
-    timestamp: '9:15 AM',
-    viewCount: 843,
-    commentCount: 12,
-  },
-  {
-    id: '3',
-    content:
-      'Our design system v2.0 is now live! Check out the updated component library and brand guidelines in the shared drive. Feedback is welcome in #design-feedback.',
-    timestamp: 'Yesterday',
-    viewCount: 2061,
-    commentCount: 57,
-  },
-]
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
+function formatTimestamp(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-export default function ChannelSubscriberView({
-  channelName,
-  channelAvatar,
-  subscriberCount,
-  isMuted = false,
-  pinnedMessage = 'Welcome to the channel! Please read the rules before posting.',
-  posts = MOCK_POSTS,
-  onBack,
-  onInfoClick,
-  onToggleMute,
-  onLeaveComment,
-}: ChannelSubscriberViewProps) {
-  const [pinnedExpanded, setPinnedExpanded] = useState(false)
+export default function ChannelSubscriberView({ chat }: ChannelSubscriberViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const messages = useChatStore((s) => s.messages)
+  const messagesLoading = useChatStore((s) => s.messagesLoading)
+  const fetchMessages = useChatStore((s) => s.fetchMessages)
+
+  const channelName = chat.name ?? 'Channel'
+  const channelAvatar = chat.avatarUrl
+  const subscriberCount = chat.members?.length ?? 0
+  const isMuted = chat.muted ?? false
+  const [localMuted, setLocalMuted] = useState(isMuted)
+  const pinnedMessage = chat.pinnedMessage ?? undefined
+  const toggleInfoPanel = useUiStore((s) => s.toggleInfoPanel)
 
   useEffect(() => {
-    const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [])
+    fetchMessages(chat.id)
+  }, [chat.id, fetchMessages])
 
   const initials = channelName
     .split(' ')
@@ -93,49 +56,56 @@ export default function ChannelSubscriberView({
 
   return (
     <div className="flex flex-1 flex-col bg-holio-offwhite">
+      {/* Header */}
       <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            onClick={toggleInfoPanel}
+            className="flex items-center gap-3 text-left"
           >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          {channelAvatar ? (
-            <img
-              src={channelAvatar}
-              alt={channelName}
-              className="h-12 w-12 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-holio-orange/15 text-sm font-bold text-holio-orange">
-              {initials}
-            </div>
-          )}
-          <button onClick={onInfoClick} className="text-left">
-            <div className="flex items-center gap-1.5">
+            {channelAvatar ? (
+              <img
+                src={channelAvatar}
+                alt={channelName}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-lavender text-sm font-semibold text-holio-text">
+                {initials}
+              </div>
+            )}
+            <div>
               <h3 className="text-sm font-semibold text-holio-text">
                 {channelName}
               </h3>
-              {isMuted && (
-                <BellOff className="h-3.5 w-3.5 text-holio-muted" />
-              )}
+              <p className="text-xs text-holio-muted">
+                {subscriberCount.toLocaleString()} subscribers
+              </p>
             </div>
-            <p className="text-xs text-holio-muted">
-              {formatCount(subscriberCount)} Subscribers
-            </p>
           </button>
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={onToggleMute}
+            onClick={async () => {
+              try {
+                if (localMuted) {
+                  await api.post(`/chats/${chat.id}/unmute`)
+                  setLocalMuted(false)
+                } else {
+                  await api.post(`/chats/${chat.id}/mute`, { duration: 'forever' })
+                  setLocalMuted(true)
+                }
+              } catch { /* mute toggle failed */ }
+            }}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            aria-label={isMuted ? 'Unmute channel' : 'Mute channel'}
           >
-            <BellOff className="h-5 w-5" />
+            {localMuted ? (
+              <BellOff className="h-5 w-5" />
+            ) : (
+              <Bell className="h-5 w-5" />
+            )}
           </button>
           <button
-            onClick={onInfoClick}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
           >
             <MoreVertical className="h-5 w-5" />
@@ -143,87 +113,90 @@ export default function ChannelSubscriberView({
         </div>
       </div>
 
+      {/* Pinned message */}
       {pinnedMessage && (
-        <button
-          onClick={() => setPinnedExpanded((v) => !v)}
-          className="flex items-start gap-2.5 border-b border-holio-orange/10 bg-holio-orange/10 px-4 py-2.5 text-left transition-colors hover:bg-holio-orange/15"
-        >
-          <Pin className="mt-0.5 h-4 w-4 flex-shrink-0 text-holio-orange" />
-          <div className="min-w-0 flex-1">
-            <span className="text-xs font-semibold text-holio-orange">
-              Pinned Message
-            </span>
-            <p
-              className={cn(
-                'mt-0.5 text-xs leading-relaxed text-holio-text',
-                !pinnedExpanded && 'line-clamp-1',
-              )}
-            >
-              {pinnedMessage}
-            </p>
-          </div>
-          <ChevronDown
-            className={cn(
-              'mt-0.5 h-4 w-4 flex-shrink-0 text-holio-muted transition-transform',
-              pinnedExpanded && 'rotate-180',
-            )}
-          />
+        <button className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-2 text-left transition-colors hover:bg-gray-50">
+          <Pin className="h-4 w-4 flex-shrink-0 text-holio-orange" />
+          <span className="truncate text-xs text-holio-text">
+            {pinnedMessage}
+          </span>
+          <ChevronDown className="ml-auto h-4 w-4 flex-shrink-0 text-holio-muted" />
         </button>
       )}
 
+      {/* Posts */}
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4"
       >
-        {posts.map((post) => (
+        {messagesLoading && messages.length === 0 && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        )}
+        {!messagesLoading && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-sm text-holio-muted">No posts yet</p>
+          </div>
+        )}
+        {messages.map((post: Message) => (
           <div
             key={post.id}
             className="overflow-hidden rounded-xl bg-white shadow-sm"
           >
             <div className="p-4">
-              <span className="text-sm font-bold text-holio-orange">
-                {channelName}
-              </span>
-              <p className="mt-2 text-sm leading-relaxed text-holio-text">
+              <div className="mb-2 flex items-center gap-2">
+                {channelAvatar ? (
+                  <img
+                    src={channelAvatar}
+                    alt={channelName}
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-holio-lavender text-[10px] font-semibold text-holio-text">
+                    {initials}
+                  </div>
+                )}
+                <span className="text-xs font-semibold text-holio-text">
+                  {channelName}
+                </span>
+                <span className="text-[11px] text-holio-muted">
+                  {formatTimestamp(post.createdAt)}
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-holio-text">
                 {post.content}
               </p>
-              <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 text-holio-muted">
-                    <Eye className="h-3.5 w-3.5" />
-                    <span className="text-xs">
-                      {formatCount(post.viewCount)}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-holio-muted">
-                    {post.timestamp}
-                  </span>
-                </div>
-                <button
-                  onClick={() => onLeaveComment?.(post.id)}
-                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-                >
+              <div className="mt-3 flex items-center gap-4 border-t border-gray-50 pt-3">
+                <div className="flex items-center gap-1 text-holio-muted">
                   <MessageSquare className="h-3.5 w-3.5" />
-                  <span className="text-xs">
-                    {post.commentCount > 0
-                      ? `${post.commentCount} comments`
-                      : 'Leave a comment'}
-                  </span>
-                </button>
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="flex-shrink-0 border-t border-gray-100 bg-white">
-        <button
-          onClick={onToggleMute}
-          className="w-full bg-[#FF9220] py-3 font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#FF9220]/90"
-        >
-          {isMuted ? 'UNMUTE' : 'MUTE'}
-        </button>
-      </div>
+      {/* Bottom bar */}
+      {localMuted ? (
+        <div className="border-t border-gray-100 bg-white p-3">
+          <button
+            onClick={async () => {
+              try {
+                await api.post(`/chats/${chat.id}/unmute`)
+                setLocalMuted(false)
+              } catch { /* unmute failed */ }
+            }}
+            className="flex h-12 w-full items-center justify-center rounded-xl bg-holio-orange text-sm font-semibold text-white transition-colors hover:bg-holio-orange/90"
+          >
+            UNMUTE
+          </button>
+        </div>
+      ) : (
+        <div className="flex h-12 items-center justify-center border-t border-gray-100 bg-white">
+          <span className="text-xs text-holio-muted">Subscribed to channel</span>
+        </div>
+      )}
     </div>
   )
 }

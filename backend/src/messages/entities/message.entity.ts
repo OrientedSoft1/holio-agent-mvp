@@ -26,8 +26,8 @@ export class Message {
   @JoinColumn({ name: 'chatId' })
   chat: Chat;
 
-  @Column()
-  senderId: string;
+  @Column({ nullable: true })
+  senderId: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'senderId' })

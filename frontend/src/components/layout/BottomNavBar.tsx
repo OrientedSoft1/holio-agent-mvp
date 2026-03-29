@@ -29,7 +29,7 @@ export default function BottomNavBar() {
 
   const isActive = (tab: BottomTab) => {
     if (tab.route) return location.pathname.startsWith(tab.route)
-    return activeNavItem === tab.id && location.pathname === '/'
+    return activeNavItem === tab.id && location.pathname === '/chat'
   }
 
   const handleTabPress = (tab: BottomTab) => {
@@ -37,7 +37,7 @@ export default function BottomNavBar() {
       navigate(tab.route)
     } else {
       setActiveNavItem(tab.id as NavItem)
-      navigate('/')
+      navigate('/chat')
     }
   }
 

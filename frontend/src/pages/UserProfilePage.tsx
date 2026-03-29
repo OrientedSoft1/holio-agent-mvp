@@ -1,17 +1,28 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft,
+  ChevronLeft,
   Phone,
   MoreVertical,
   MessageCircle,
   QrCode,
+  Info,
+  FileText,
+  ImageOff,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useAuthStore } from '../stores/authStore'
 import { usePresenceStore } from '../stores/presenceStore'
 import api from '../services/api.service'
 import type { User } from '../types'
+
+interface SharedMediaItem {
+  id: string
+  url: string
+  type: 'image' | 'video' | 'file'
+  name?: string
+  createdAt: string
+}
 
 type MediaTab = 'posts' | 'media' | 'files' | 'voice' | 'links' | 'gifs'
 
@@ -24,42 +35,21 @@ const MEDIA_TABS: { key: MediaTab; label: string }[] = [
   { key: 'gifs', label: 'GIFs' },
 ]
 
-const MOCK_MEDIA = [
-  { id: 1, color: 'bg-amber-200' },
-  { id: 2, color: 'bg-sky-200' },
-  { id: 3, color: 'bg-rose-200' },
-  { id: 4, color: 'bg-emerald-200' },
-  { id: 5, color: 'bg-violet-200' },
-  { id: 6, color: 'bg-orange-200' },
-  { id: 7, color: 'bg-teal-200' },
-  { id: 8, color: 'bg-pink-200' },
-  { id: 9, color: 'bg-indigo-200' },
-  { id: 10, color: 'bg-lime-200' },
-  { id: 11, color: 'bg-cyan-200' },
-  { id: 12, color: 'bg-fuchsia-200' },
-]
-
-const COLLAPSE_THRESHOLD = 120
-
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
   const currentUser = useAuthStore((s) => s.user)
-  const isOnline = usePresenceStore((s) =>
-    userId ? s.onlineUsers.has(userId) : false,
-  )
-  const lastSeen = usePresenceStore((s) =>
-    userId ? s.lastSeen[userId] : undefined,
-  )
+  const isOnline = usePresenceStore((s) => userId ? !!s.onlineUsers[userId] : false)
+  const lastSeen = usePresenceStore((s) => userId ? s.lastSeen[userId] : undefined)
 
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<MediaTab>('media')
   const [notifications, setNotifications] = useState(true)
-
+  const [mediaItems, setMediaItems] = useState<SharedMediaItem[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [scrollY, setScrollY] = useState(0)
-  const rafRef = useRef(0)
+  const [scrollTop, setScrollTop] = useState(0)
 
   useEffect(() => {
     if (!userId) return
@@ -68,38 +58,34 @@ export default function UserProfilePage() {
       setLoading(false)
       return
     }
-    let cancelled = false
     const fetchUser = async () => {
       try {
         const { data } = await api.get<User>(`/users/${userId}`)
-        if (!cancelled) setUser(data)
+        setUser(data)
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     fetchUser()
-    return () => {
-      cancelled = true
-    }
   }, [userId, currentUser])
 
-  const handleScroll = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      if (scrollRef.current) setScrollY(scrollRef.current.scrollTop)
-    })
-  }, [])
-
   useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [])
+    if (!userId) return
+    setMediaLoading(true)
+    api
+      .get<SharedMediaItem[]>(`/users/${userId}/shared-media`, { params: { type: activeTab } })
+      .then(({ data }) => setMediaItems(data))
+      .catch(() => setMediaItems([]))
+      .finally(() => setMediaLoading(false))
+  }, [userId, activeTab])
 
-  const progress = Math.min(scrollY / COLLAPSE_THRESHOLD, 1)
-  const collapsed = progress >= 1
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      setScrollTop(scrollRef.current.scrollTop)
+    }
+  }
 
   const statusText = isOnline
     ? 'online'
@@ -109,7 +95,7 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-holio-offwhite">
+      <div className="flex h-full items-center justify-center bg-holio-offwhite">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
       </div>
     )
@@ -117,77 +103,51 @@ export default function UserProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-holio-offwhite">
+      <div className="flex h-full flex-col items-center justify-center bg-holio-offwhite">
         <p className="text-holio-muted">User not found</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="mt-4 text-holio-orange"
-        >
+        <button onClick={() => navigate(-1)} className="mt-4 text-holio-orange">
           Go back
         </button>
       </div>
     )
   }
 
-  const name =
-    [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Unknown'
-  const initials = name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-
-  const avatarSize = 120 - 84 * progress
-  const avatarFontSize = 30 - 18 * progress
-  const fabSize = 32 - 10 * progress
+  const initials = `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() || '?'
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
-      <header className="relative flex h-14 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
-        <div className="flex items-center gap-3">
+    <div className="flex h-full flex-col bg-holio-offwhite">
+      <header
+        className={cn(
+          'flex h-14 flex-shrink-0 items-center justify-between border-b bg-white px-4 transition-all duration-200',
+          scrollTop > 100 ? 'border-gray-100 shadow-sm' : 'border-transparent',
+        )}
+      >
+        <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
             className="flex h-9 w-9 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-100"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ChevronLeft className="h-6 w-6" />
           </button>
-
-          <div
-            className="flex items-center gap-2.5 transition-all duration-300"
-            style={{
-              opacity: progress,
-              transform: `translateX(${(1 - progress) * -12}px)`,
-              pointerEvents: collapsed ? 'auto' : 'none',
-            }}
-          >
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={name}
-                className="h-9 w-9 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-holio-lavender text-xs font-bold text-white">
-                {initials}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-holio-text">
-                {name}
-              </p>
-              <p
-                className={cn(
-                  'truncate text-xs',
-                  isOnline ? 'text-holio-orange' : 'text-holio-muted',
-                )}
-              >
-                {statusText}
-              </p>
+          {scrollTop > 100 && (
+            <div className="flex items-center gap-2 transition-opacity duration-200">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.firstName}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-holio-lavender text-xs font-bold text-white">
+                  {initials}
+                </div>
+              )}
+              <span className="text-sm font-semibold text-holio-text">
+                {user.firstName} {user.lastName ?? ''}
+              </span>
             </div>
-          </div>
+          )}
         </div>
-
         <div className="flex items-center gap-1">
           <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100">
             <Phone className="h-5 w-5" />
@@ -203,61 +163,46 @@ export default function UserProfilePage() {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto"
       >
-        <div className="flex flex-col items-center px-4 pb-4 pt-8">
-          <div
-            className="relative transition-[width,height] duration-300 ease-out"
-            style={{ width: avatarSize, height: avatarSize }}
-          >
+        <div className="flex flex-col items-center px-4 pb-4 pt-10">
+          <div className="relative">
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
-                alt={name}
-                className="h-full w-full rounded-full object-cover"
+                alt={user.firstName}
+                className="h-[120px] w-[120px] rounded-full object-cover ring-4 ring-holio-lavender/20"
               />
             ) : (
-              <div
-                className="flex h-full w-full items-center justify-center rounded-full bg-holio-lavender font-bold text-white"
-                style={{ fontSize: avatarFontSize }}
-              >
+              <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-holio-lavender text-3xl font-bold text-white ring-4 ring-holio-lavender/20">
                 {initials}
               </div>
             )}
-            <button
-              className="absolute bottom-0 right-0 flex items-center justify-center rounded-full bg-holio-orange shadow-md transition-[width,height] duration-300 ease-out"
-              style={{ width: fabSize, height: fabSize }}
-            >
-              <MessageCircle
-                className="text-white"
-                style={{
-                  width: 16 - 4 * progress,
-                  height: 16 - 4 * progress,
-                }}
-              />
+            <button className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-holio-orange shadow-lg">
+              <MessageCircle className="h-[18px] w-[18px] text-white" />
             </button>
           </div>
 
-          <h1
-            className="mt-4 text-[22px] font-bold leading-tight text-holio-text transition-opacity duration-300"
-            style={{ opacity: 1 - progress }}
-          >
-            {name}
+          <h1 className="mt-4 text-[22px] font-bold text-holio-text">
+            {user.firstName} {user.lastName ?? ''}
           </h1>
-          <p
-            className={cn(
-              'mt-1 text-sm transition-opacity duration-300',
-              isOnline ? 'text-holio-orange' : 'text-holio-muted',
+          <p className={cn('mt-1 flex items-center gap-1.5 text-sm', isOnline ? 'text-holio-orange' : 'text-holio-muted')}>
+            {isOnline && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+              </span>
             )}
-            style={{ opacity: 1 - progress }}
-          >
             {statusText}
           </p>
         </div>
 
-        <div className="mx-4 rounded-2xl bg-white">
+        <div className="mx-4 rounded-2xl bg-white shadow-sm">
           {user.bio && (
             <>
               <div className="px-4 py-3">
-                <p className="text-xs text-holio-muted">Bio</p>
+                <p className="flex items-center gap-1.5 text-xs text-holio-muted">
+                  <Info className="h-3.5 w-3.5" />
+                  Bio
+                </p>
                 <p className="mt-1 text-sm text-holio-text">{user.bio}</p>
               </div>
               <div className="mx-4 h-px bg-gray-100" />
@@ -269,11 +214,9 @@ export default function UserProfilePage() {
               <div className="flex items-center justify-between px-4 py-3">
                 <div>
                   <p className="text-xs text-holio-muted">Username</p>
-                  <p className="mt-1 text-sm text-holio-text">
-                    @{user.username}
-                  </p>
+                  <p className="mt-1 text-sm text-holio-text">@{user.username}</p>
                 </div>
-                <button className="flex h-8 w-8 items-center justify-center rounded-full text-holio-orange transition-colors hover:bg-holio-orange/10">
+                <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-holio-orange/10 text-holio-orange">
                   <QrCode className="h-5 w-5" />
                 </button>
               </div>
@@ -293,7 +236,7 @@ export default function UserProfilePage() {
               <span
                 className={cn(
                   'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                  notifications ? 'translate-x-5' : 'translate-x-0',
+                  notifications && 'translate-x-5',
                 )}
               />
             </button>
@@ -301,7 +244,7 @@ export default function UserProfilePage() {
         </div>
 
         <div className="sticky top-0 z-10 mt-4 bg-holio-offwhite">
-          <div className="flex items-center gap-1 overflow-x-auto px-4 scrollbar-none">
+          <div className="flex items-center gap-1 overflow-x-auto px-4 scrollbar-hide">
             {MEDIA_TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -320,17 +263,41 @@ export default function UserProfilePage() {
           <div className="h-px bg-gray-100" />
         </div>
 
-        <div className="grid grid-cols-3 gap-0.5 p-0.5">
-          {MOCK_MEDIA.map((item) => (
-            <div
-              key={item.id}
-              className={cn(
-                'aspect-square cursor-pointer transition-opacity hover:opacity-80',
-                item.color,
-              )}
-            />
-          ))}
-        </div>
+        {mediaLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" />
+          </div>
+        ) : mediaItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-holio-muted">
+            <ImageOff className="h-10 w-10" />
+            <p className="text-sm">
+              No {MEDIA_TABS.find((t) => t.key === activeTab)?.label.toLowerCase() ?? activeTab} shared yet
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-0.5 p-0.5">
+            {mediaItems.map((item) => (
+              <div key={item.id} className="aspect-square rounded-sm bg-gray-50">
+                {item.type === 'image' ? (
+                  <img
+                    src={item.url}
+                    alt={item.name}
+                    className="aspect-square w-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-1 p-2">
+                    <FileText className="h-8 w-8 text-holio-muted" />
+                    {item.name && (
+                      <span className="line-clamp-2 text-center text-xs text-holio-muted">
+                        {item.name}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

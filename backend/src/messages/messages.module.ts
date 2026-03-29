@@ -7,12 +7,14 @@ import { Message } from './entities/message.entity.js';
 import { ReadReceipt } from './entities/read-receipt.entity.js';
 import { ChatsModule } from '../chats/chats.module.js';
 import { UsersModule } from '../users/users.module.js';
+import { BotsModule } from '../bots/bots.module.js';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Message, ReadReceipt]),
     ChatsModule,
     UsersModule,
+    BotsModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService, LinkPreviewService],

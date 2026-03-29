@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { ArrowLeft, Check, UserPlus, ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import api from '../../services/api.service'
+import { COUNTRY_CODES } from '../../lib/countryCodes'
 
 interface Props { open: boolean; onClose: () => void; onCreated?: () => void }
-const CC = [{ code: '+1', flag: '🇺🇸', label: 'US' },{ code: '+44', flag: '🇬🇧', label: 'UK' },{ code: '+47', flag: '🇳🇴', label: 'NO' },{ code: '+46', flag: '🇸🇪', label: 'SE' },{ code: '+49', flag: '🇩🇪', label: 'DE' },{ code: '+33', flag: '🇫🇷', label: 'FR' },{ code: '+91', flag: '🇮🇳', label: 'IN' },{ code: '+81', flag: '🇯🇵', label: 'JP' },{ code: '+86', flag: '🇨🇳', label: 'CN' },{ code: '+61', flag: '🇦🇺', label: 'AU' },{ code: '+55', flag: '🇧🇷', label: 'BR' }]
+const CC = COUNTRY_CODES.map((c) => ({ code: c.code, flag: c.flag, label: c.country }))
 
 export default function NewContactForm({ open, onClose, onCreated }: Props) {
   const [fn, setFn] = useState(''); const [ln, setLn] = useState(''); const [ph, setPh] = useState('')
-  const [ci, setCi] = useState(0); const [showC, setShowC] = useState(false)
+  const [ci, setCi] = useState(() => CC.findIndex((c) => c.label === 'NO') || 0); const [showC, setShowC] = useState(false)
   const [saving, setSaving] = useState(false); const [err, setErr] = useState('')
   if (!open) return null
   const sel = CC[ci]
@@ -23,7 +24,7 @@ export default function NewContactForm({ open, onClose, onCreated }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="flex w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4">
-          <div className="flex items-center gap-3"><button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><ArrowLeft className="h-5 w-5" /></button><h2 className="text-lg font-bold text-holio-text">New Contact</h2></div>
+          <div className="flex items-center gap-3"><button onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><ArrowLeft className="h-5 w-5" /></button><h2 className="text-lg font-bold text-holio-text">New Contact</h2></div>
           <button onClick={create} disabled={saving || !fn.trim() || !ph.trim()} className="flex h-8 w-8 items-center justify-center rounded-full text-holio-orange transition-colors hover:bg-holio-orange/10 disabled:opacity-50">{saving ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" /> : <Check className="h-5 w-5" />}</button>
         </div>
         <div className="p-6">

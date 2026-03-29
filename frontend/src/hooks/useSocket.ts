@@ -3,7 +3,7 @@ import { getSocket, connectSocket, disconnectSocket } from '../services/socket.s
 import { useChatStore } from '../stores/chatStore'
 import { useAuthStore } from '../stores/authStore'
 import { usePresenceStore } from '../stores/presenceStore'
-import type { Message } from '../types'
+import type { Message, Chat, MessageReaction } from '../types'
 
 export function useSocket() {
   const token = useAuthStore((s) => s.accessToken)
@@ -29,8 +29,8 @@ export function useSocket() {
       updateMessage(data.id, data)
     })
 
-    socket.on('message:delete', (data: { id: string }) => {
-      removeMessage(data.id)
+    socket.on('message:delete', (data: { messageId: string }) => {
+      removeMessage(data.messageId)
     })
 
     socket.on('typing:update', (data: { chatId: string; userId: string; isTyping: boolean }) => {
@@ -41,8 +41,77 @@ export function useSocket() {
       updatePresence(data.userId, data.isOnline, data.lastSeen)
     })
 
-    socket.on('message:read:update', (data: { messageId: string; readBy: string }) => {
-      updateMessage(data.messageId, { isRead: true } as Partial<Message>)
+    socket.on('message:status', (data: { messageId?: string; chatId?: string; messageIds?: string[]; status: string }) => {
+      if (data.status === 'read') {
+        if (data.messageIds) {
+          data.messageIds.forEach((mid) => updateMessage(mid, { isRead: true } as Partial<Message>))
+        } else if (data.messageId) {
+          updateMessage(data.messageId, { isRead: true } as Partial<Message>)
+        }
+      }
+    })
+
+    socket.on('chat:update', (data: Partial<Chat> & { id: string }) => {
+      const chats = useChatStore.getState().chats
+      const updated = chats.map((c) => (c.id === data.id ? { ...c, ...data } : c))
+      useChatStore.setState({ chats: updated })
+      const active = useChatStore.getState().activeChat
+      if (active?.id === data.id) {
+        useChatStore.setState({ activeChat: { ...active, ...data } })
+      }
+    })
+
+    socket.on('reaction:update', (data: { messageId: string; reactions?: MessageReaction[]; userId?: string; emoji?: string; action?: string }) => {
+      if (data.reactions) {
+        updateMessage(data.messageId, { reactions: data.reactions } as Partial<Message>)
+      } else if (data.emoji && data.userId && data.action) {
+        const msgs = useChatStore.getState().messages
+        const msg = msgs.find((m) => m.id === data.messageId)
+        if (msg) {
+          const prev = msg.reactions ?? []
+          let next: MessageReaction[]
+          if (data.action === 'removed') {
+            next = prev.map((r) =>
+              r.emoji === data.emoji ? { ...r, count: r.count - 1 } : r
+            ).filter((r) => r.count > 0)
+          } else {
+            const existing = prev.find((r) => r.emoji === data.emoji)
+            if (existing) {
+              next = prev.map((r) =>
+                r.emoji === data.emoji ? { ...r, count: r.count + 1 } : r
+              )
+            } else {
+              next = [...prev, { emoji: data.emoji, count: 1, reacted: false }]
+            }
+          }
+          updateMessage(data.messageId, { reactions: next } as Partial<Message>)
+        }
+      }
+    })
+
+    socket.on('bot:response', (message: Message) => {
+      addMessage(message)
+    })
+
+    socket.on('message:pin', (data: { messageId: string; isPinned: boolean }) => {
+      updateMessage(data.messageId, { isPinned: data.isPinned } as Partial<Message>)
+    })
+
+    socket.on('poll:update', (data: { pollId: string; results: unknown }) => {
+      const msgs = useChatStore.getState().messages
+      const msg = msgs.find((m) => m.metadata?.poll?.id === data.pollId)
+      if (msg && msg.metadata) {
+        updateMessage(msg.id, {
+          metadata: { ...msg.metadata, poll: { ...msg.metadata.poll, ...data.results } },
+        } as Partial<Message>)
+      }
+    })
+
+    socket.on('connect', () => {
+      const chatId = joinedChatRef.current
+      if (chatId) {
+        socket.emit('chat:join', { chatId })
+      }
     })
 
     return () => {
@@ -51,7 +120,13 @@ export function useSocket() {
       socket.off('message:delete')
       socket.off('typing:update')
       socket.off('presence:update')
-      socket.off('message:read:update')
+      socket.off('message:status')
+      socket.off('chat:update')
+      socket.off('reaction:update')
+      socket.off('bot:response')
+      socket.off('message:pin')
+      socket.off('poll:update')
+      socket.off('connect')
       disconnectSocket()
     }
   }, [token, addMessage, updateMessage, removeMessage, setTyping, updatePresence])
@@ -66,6 +141,13 @@ export function useSocket() {
 
     socket.emit('chat:join', { chatId: activeChat.id })
     joinedChatRef.current = activeChat.id
+
+    return () => {
+      if (joinedChatRef.current) {
+        socket.emit('chat:leave', { chatId: joinedChatRef.current })
+        joinedChatRef.current = null
+      }
+    }
   }, [activeChat])
 
   const emitTyping = useCallback(() => {

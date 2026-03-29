@@ -189,6 +189,26 @@ export class GroupsService {
 
   // ──── Invite Links ────
 
+  async getInviteLinks(channelId: string, userId: string) {
+    await this.findChannelOrFail(channelId);
+    await this.requireChannelAdmin(channelId, userId);
+
+    const chat = await this.chatRepo.findOneOrFail({
+      where: { id: channelId },
+    });
+    const metadata = chat.metadata ?? {};
+    const inviteLinks =
+      (metadata.inviteLinks as Array<Record<string, unknown>>) ?? [];
+
+    return inviteLinks
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt as string).getTime() -
+          new Date(a.createdAt as string).getTime(),
+      );
+  }
+
   async generateInviteLink(
     channelId: string,
     userId: string,

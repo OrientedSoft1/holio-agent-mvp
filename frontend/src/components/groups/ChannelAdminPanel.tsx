@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   X,
   Search,
@@ -59,6 +59,9 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [recentPosts, setRecentPosts] = useState<Message[]>([])
 
+  const membersRef = useRef<HTMLDivElement>(null)
+  const settingsRef = useRef<HTMLDivElement>(null)
+
   const [name, setName] = useState(chat.name ?? '')
   const [description, setDescription] = useState(chat.description ?? '')
   const [isPublic, setIsPublic] = useState(chat.isPublic ?? false)
@@ -91,6 +94,12 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
       }
     }
     fetchRecentPosts()
+  }, [chat.id])
+
+  useEffect(() => {
+    api.get(`/groups/${chat.id}/invite-links`)
+      .then(({ data }) => setInviteLinks(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [chat.id])
 
   const handleSaveSettings = async () => {
@@ -163,6 +172,19 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
     setTimeout(() => setCopiedToken(null), 2000)
   }
 
+  const handleAction = (label: string) => {
+    switch (label) {
+      case 'Edit':
+        settingsRef.current?.scrollIntoView({ behavior: 'smooth' })
+        break
+      case 'Members':
+        membersRef.current?.scrollIntoView({ behavior: 'smooth' })
+        break
+      case 'Statistics':
+        break
+    }
+  }
+
   const filteredMembers = members.filter((m) => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
@@ -212,7 +234,8 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
           ).map(([Icon, label]) => (
             <button
               key={label}
-              onClick={label === 'Invite Link' ? handleGenerateLink : undefined}
+              onClick={label === 'Invite Link' ? handleGenerateLink : () => handleAction(label)}
+              title={label === 'Edit' ? 'Edit channel settings' : undefined}
               className="flex flex-1 flex-col items-center gap-1.5 rounded-xl bg-gray-50 py-3 text-holio-muted transition-colors hover:bg-holio-lavender/20 hover:text-holio-text"
             >
               <Icon className="h-4 w-4" />
@@ -234,11 +257,11 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
                   <div className="mt-2 flex items-center gap-3 text-[10px] text-holio-muted">
                     <span className="flex items-center gap-1">
                       <Eye className="h-3 w-3" />
-                      {(post.metadata as any)?.viewCount ?? 0}
+                      {post.viewCount ?? 0}
                     </span>
                     <span className="flex items-center gap-1">
                       <Forward className="h-3 w-3" />
-                      {(post.metadata as any)?.forwardCount ?? 0}
+                      {post.forwardCount ?? 0}
                     </span>
                     <span className="ml-auto">
                       {new Date(post.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
@@ -250,7 +273,7 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
           </div>
         )}
         {/* Channel Settings */}
-        <div className="border-b border-gray-100 px-4 py-4">
+        <div ref={settingsRef} className="border-b border-gray-100 px-4 py-4">
           <h4 className="mb-3 text-xs font-semibold tracking-wide text-holio-muted uppercase">
             Channel Settings
           </h4>
@@ -375,7 +398,7 @@ export default function ChannelAdminPanel({ chat, onClose }: ChannelAdminPanelPr
         </div>
 
         {/* Members */}
-        <div className="px-4 py-4">
+        <div ref={membersRef} className="px-4 py-4">
           <h4 className="mb-3 text-xs font-semibold tracking-wide text-holio-muted uppercase">
             Members ({members.length})
           </h4>

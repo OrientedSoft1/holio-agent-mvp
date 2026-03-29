@@ -1,34 +1,24 @@
-import {
-  ChevronLeft,
-  Phone,
-  MoreVertical,
-  Lock,
-  Server,
-  Timer,
-  Forward,
-} from 'lucide-react'
+import { useState } from 'react'
+import { Phone, MoreVertical, ShieldCheck, Lock } from 'lucide-react'
+import api from '../../services/api.service'
+import { useChatStore } from '../../stores/chatStore'
+import type { Chat } from '../../types'
 
 interface SecretChatInvitationProps {
-  userName: string
-  userAvatar?: string | null
-  onAccept: () => void
-  onBack: () => void
+  chat: Chat
 }
 
-const features = [
-  { icon: Lock, text: 'Use end-to-end encryption' },
-  { icon: Server, text: 'Leave no trace on our servers' },
-  { icon: Timer, text: 'Have a self-destruct timer' },
-  { icon: Forward, text: 'Do not allow forwarding' },
-] as const
-
 export default function SecretChatInvitation({
-  userName,
-  userAvatar,
-  onAccept,
-  onBack,
+  chat,
 }: SecretChatInvitationProps) {
-  const initials = userName
+  const [accepting, setAccepting] = useState(false)
+  const fetchMessages = useChatStore((s) => s.fetchMessages)
+
+  const inviterName = chat.name ?? 'Unknown'
+  const inviterAvatar = chat.avatarUrl
+  const inviterStatus = 'last seen recently'
+
+  const initials = inviterName
     .split(' ')
     .map((w) => w[0])
     .join('')
@@ -36,99 +26,94 @@ export default function SecretChatInvitation({
     .toUpperCase()
 
   return (
-    <div className="flex h-full flex-col bg-[#FCFCF8]">
-      <header className="flex h-16 flex-shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
-        <button
-          onClick={onBack}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-gray-100"
-          aria-label="Go back"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-
+    <div className="flex h-full flex-col bg-holio-offwhite">
+      <header className="flex h-[72px] flex-shrink-0 items-center gap-2 border-b border-gray-200 bg-[#fafafa] px-4">
         <div className="relative">
-          {userAvatar ? (
+          {inviterAvatar ? (
             <img
-              src={userAvatar}
-              alt={userName}
-              className="h-10 w-10 rounded-full object-cover"
+              src={inviterAvatar}
+              alt={inviterName}
+              className="h-12 w-12 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#C6D5BA] text-sm font-semibold text-white">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-holio-sage text-sm font-semibold text-white">
               {initials}
             </div>
           )}
-          <div className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white bg-[#C6D5BA]">
-            <Lock className="h-2.5 w-2.5 text-white" />
+          <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-holio-sage">
+            <Lock className="h-3 w-3 text-white" />
           </div>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-semibold text-[#1A1A1A]">
-            {userName}
-          </h3>
-          <p className="truncate text-xs text-[#8E8E93]">last seen recently</p>
+        <div className="ml-1 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <h3 className="truncate text-lg font-medium text-holio-text">{inviterName}</h3>
+            <Lock className="h-4 w-4 flex-shrink-0 text-holio-sage" />
+          </div>
+          <p className="truncate text-sm text-holio-muted">{inviterStatus}</p>
         </div>
 
         <div className="flex items-center gap-1">
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#8E8E93] transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]"
-            aria-label="Call"
-          >
+          <button title="Voice call" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text">
             <Phone className="h-5 w-5" />
           </button>
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#8E8E93] transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]"
-            aria-label="More options"
-          >
+          <button title="More options" className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text">
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>
       </header>
 
-      <div
-        className="flex flex-1 flex-col items-center justify-center px-6"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle, #e5e5e5 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-        }}
-      >
-        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm">
+      <div className="flex flex-1 flex-col items-center justify-center px-6">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg">
           <div className="mb-4 flex justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#C6D5BA]/20">
-              <Lock className="h-7 w-7 text-[#C6D5BA]" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-holio-sage/20">
+              <ShieldCheck className="h-8 w-8 text-holio-sage" />
             </div>
           </div>
 
-          <p className="mb-5 text-center text-[15px] font-bold text-[#1A1A1A]">
-            {userName} invited you to join a secret chat.
+          <p className="mb-4 text-center text-base font-medium text-holio-text">
+            {inviterName} invited you to join a secret chat.
           </p>
 
-          <p className="mb-3 text-sm font-semibold text-[#1A1A1A]">
-            Secret chats:
-          </p>
-
-          <ul className="space-y-2.5">
-            {features.map(({ icon: Icon, text }) => (
-              <li
-                key={text}
-                className="flex items-center gap-2.5 text-sm text-[#8E8E93]"
-              >
-                <Icon className="h-4 w-4 flex-shrink-0 text-[#C6D5BA]" />
-                {text}
-              </li>
-            ))}
+          <p className="mb-2 text-sm font-bold text-holio-text">Secret chats:</p>
+          <ul className="space-y-1.5 text-sm text-holio-muted">
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-holio-muted" />
+              Use end-to-end encryption
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-holio-muted" />
+              Leave no trace on our servers
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-holio-muted" />
+              Have a self-destruct timer
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-holio-muted" />
+              Do not allow forwarding
+            </li>
           </ul>
         </div>
       </div>
 
-      <div className="flex-shrink-0 px-4 pb-6 pt-3">
+      <div className="flex-shrink-0 px-4 pb-6 pt-2">
         <button
-          onClick={onAccept}
-          className="w-full rounded-xl bg-[#FF9220] py-3 text-base font-semibold text-white transition-colors hover:bg-[#FF9220]/90 active:bg-[#FF9220]/80"
+          onClick={async () => {
+            setAccepting(true)
+            try {
+              await api.post(`/chats/${chat.id}/accept`)
+              fetchMessages(chat.id)
+            } catch {
+              // ignore
+            } finally {
+              setAccepting(false)
+            }
+          }}
+          disabled={accepting}
+          className="w-full rounded-xl bg-holio-orange py-3 text-base font-medium text-white transition-colors hover:bg-holio-orange/90 active:bg-holio-orange/80"
         >
-          Accept
+          {accepting ? 'Accepting...' : 'Accept'}
         </button>
       </div>
     </div>

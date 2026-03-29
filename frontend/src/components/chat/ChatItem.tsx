@@ -2,6 +2,7 @@ import { BellOff, BadgeCheck } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { usePresenceStore } from '../../stores/presenceStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useAuthStore } from '../../stores/authStore'
 import type { Chat } from '../../types'
 
 interface ChatItemProps { chat: Chat; isSelected: boolean; onClick: () => void }
@@ -18,22 +19,24 @@ function getChatDisplay(chat: Chat) {
   const isChannel = chat.type === 'channel'
   const isGroup = chat.type === 'group'
   const displayName = isChannel ? `# ${chat.name ?? 'channel'}` : chat.name ?? 'Chat'
-  const initials = isChannel ? '#' : displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const initials = isChannel ? '#' : displayName.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   const colorMap: Record<string, string> = { private: '#6366f1', group: '#059669', channel: '#8b5cf6', bot: '#FF9220' }
   return { displayName, initials, isChannel, isGroup, color: colorMap[chat.type] ?? '#6366f1' }
 }
 
 export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
   const { displayName, initials, isChannel, isGroup, color } = getChatDisplay(chat)
-  const members = (chat as any).members as { userId: string }[] | undefined
-  const otherUserId = chat.type === 'private' && members ? members.find((m) => m.userId !== (chat as any).currentUserId)?.userId : undefined
-  const isOnline = usePresenceStore((s) => otherUserId ? s.onlineUsers.has(otherUserId) : false)
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const members = chat.members
+  const otherUserId = chat.type === 'private' && members ? members.find((m) => m.userId !== currentUserId)?.userId : undefined
+  const isOnline = usePresenceStore((s) => otherUserId ? !!s.onlineUsers[otherUserId] : false)
   const isDM = chat.type === 'private'
-  const typingUsers = useChatStore((s) => s.typingUsers[chat.id] ?? [])
+  const typingUsers = useChatStore((s) => s.typingUsers[chat.id])
+  const typingCount = typingUsers?.length ?? 0
   const lastMsgText = chat.lastMessage?.content ?? ''
   const lastMsgTime = chat.lastMessage?.createdAt ?? chat.createdAt
   const senderPrefix = (isGroup || isChannel) && chat.lastMessage?.sender ? `${chat.lastMessage.sender.firstName}: ` : ''
-  const isVerified = isChannel || (chat as any).verified
+  const isVerified = isChannel || chat.verified
 
   return (
     <>
@@ -55,7 +58,7 @@ export default function ChatItem({ chat, isSelected, onClick }: ChatItemProps) {
           </div>
           <div className="flex items-center justify-between">
             <p className="truncate text-[13px] text-holio-muted">
-              {typingUsers.length > 0 ? <span className="text-holio-orange">typing...</span> : <>{senderPrefix}{lastMsgText}</>}
+              {typingCount > 0 ? <span className="text-holio-orange">typing...</span> : <>{senderPrefix}{lastMsgText}</>}
             </p>
             {chat.unreadCount > 0 && (
               <span className={cn('ml-2 flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white', chat.muted ? 'bg-gray-400' : 'bg-holio-orange')}>{chat.unreadCount}</span>

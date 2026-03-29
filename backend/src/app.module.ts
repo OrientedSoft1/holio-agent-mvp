@@ -18,8 +18,21 @@ import { SearchModule } from './search/search.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { FoldersModule } from './folders/folders.module.js';
+import { TagsModule } from './tags/tags.module.js';
+import { CallsModule } from './calls/calls.module.js';
+import { SessionsModule } from './sessions/sessions.module.js';
+import { IntegrationsModule } from './integrations/integrations.module.js';
 import { GatewayModule } from './gateway/gateway.module.js';
 import { CommonModule } from './common/common.module.js';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
+import { AppInfoModule } from './app/app-info.module.js';
+import { AgentsModule } from './agents/agents.module.js';
+import { GuardrailsModule } from './guardrails/guardrails.module.js';
+import { KnowledgeBasesModule } from './knowledge-bases/knowledge-bases.module.js';
+import { PlaygroundModule } from './playground/playground.module.js';
+import { GifsModule } from './gifs/gifs.module.js';
+import { AIUsageModule } from './ai-usage/ai-usage.module.js';
+import { ImageGenModule } from './image-gen/image-gen.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 
 @Module({
@@ -68,7 +81,20 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
     GatewayModule,
     UploadsModule,
     FoldersModule,
+    TagsModule,
+    CallsModule,
+    SessionsModule,
+    IntegrationsModule,
     CommonModule,
+    SubscriptionsModule,
+    AppInfoModule,
+    AgentsModule,
+    GuardrailsModule,
+    KnowledgeBasesModule,
+    PlaygroundModule,
+    GifsModule,
+    AIUsageModule,
+    ImageGenModule,
   ],
   providers: [
     {

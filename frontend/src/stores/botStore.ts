@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import api from '../services/api.service'
-import type { Bot, BotTemplate } from '../types'
+import type { Bot, BotTemplate, Chat } from '../types'
 
 interface CreateBotDto {
   companyId: string
@@ -26,20 +26,26 @@ interface UpdateBotDto {
 interface BotState {
   templates: BotTemplate[]
   companyBots: Bot[]
+  availableModels: { modelId: string; modelName: string; provider: string }[]
+  modelsFetchError: string | null
   loading: boolean
   fetchTemplates: () => Promise<void>
   fetchCompanyBots: (companyId: string) => Promise<void>
+  fetchModels: (companyId: string) => Promise<void>
   createBot: (dto: CreateBotDto) => Promise<Bot>
   createFromTemplate: (companyId: string, templateId: string) => Promise<Bot>
   updateBot: (botId: string, dto: UpdateBotDto) => Promise<void>
   deleteBot: (botId: string) => Promise<void>
   inviteBotToChat: (botId: string, chatId: string) => Promise<void>
   removeBotFromChat: (botId: string, chatId: string) => Promise<void>
+  startBotChat: (botId: string) => Promise<Chat>
 }
 
 export const useBotStore = create<BotState>((set) => ({
   templates: [],
   companyBots: [],
+  availableModels: [],
+  modelsFetchError: null,
   loading: false,
 
   fetchTemplates: async () => {
@@ -62,8 +68,21 @@ export const useBotStore = create<BotState>((set) => ({
     }
   },
 
+  fetchModels: async (companyId: string) => {
+    try {
+      const { data } = await api.get<{ modelId: string; modelName: string; provider: string }[]>(
+        `/companies/${companyId}/bedrock-models`,
+      )
+      set({ availableModels: data, modelsFetchError: null })
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load models'
+      set({ modelsFetchError: message })
+    }
+  },
+
   createBot: async (dto: CreateBotDto) => {
-    const { data } = await api.post<Bot>('/bots', dto)
+    const { data } = await api.post<Bot>(`/companies/${dto.companyId}/bots`, dto)
     set((state) => ({ companyBots: [...state.companyBots, data] }))
     return data
   },
@@ -94,10 +113,15 @@ export const useBotStore = create<BotState>((set) => ({
   },
 
   inviteBotToChat: async (botId: string, chatId: string) => {
-    await api.post(`/chats/${chatId}/bots`, { botId })
+    await api.post(`/bots/${botId}/invite`, { chatId })
   },
 
   removeBotFromChat: async (botId: string, chatId: string) => {
-    await api.delete(`/chats/${chatId}/bots/${botId}`)
+    await api.delete(`/bots/${botId}/chats/${chatId}`)
+  },
+
+  startBotChat: async (botId: string) => {
+    const { data } = await api.post<Chat>(`/bots/${botId}/chat`)
+    return data
   },
 }))

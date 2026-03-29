@@ -17,7 +17,21 @@ import { BotTemplate } from './entities/bot-template.entity.js';
 import { CompanyMember } from '../companies/entities/company-member.entity.js';
 import { CreateBotDto } from './dto/create-bot.dto.js';
 import { UpdateBotDto } from './dto/update-bot.dto.js';
-import { CompanyRole, BotType, BotTaskStatus } from '../common/enums.js';
+import {
+  CompanyRole,
+  BotType,
+  BotTaskStatus,
+  ChatType,
+  ChatMemberRole,
+} from '../common/enums.js';
+import { Chat } from '../chats/entities/chat.entity.js';
+import { ChatMember } from '../chats/entities/chat-member.entity.js';
+
+interface BotStatsRow {
+  totalTasks: string;
+  totalTokensUsed: string;
+  avgDurationMs: string;
+}
 
 @Injectable()
 export class BotsService implements OnModuleInit {
@@ -34,6 +48,10 @@ export class BotsService implements OnModuleInit {
     private readonly templateRepo: Repository<BotTemplate>,
     @InjectRepository(CompanyMember)
     private readonly companyMemberRepo: Repository<CompanyMember>,
+    @InjectRepository(Chat)
+    private readonly chatRepo: Repository<Chat>,
+    @InjectRepository(ChatMember)
+    private readonly chatMemberRepo: Repository<ChatMember>,
     @InjectQueue('bot-tasks')
     private readonly botTaskQueue: Queue,
   ) {}
@@ -138,6 +156,7 @@ export class BotsService implements OnModuleInit {
   async removeFromChat(
     botId: string,
     chatId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _userId: string,
   ): Promise<void> {
     const member = await this.botChatMemberRepo.findOne({
@@ -272,7 +291,7 @@ export class BotsService implements OnModuleInit {
       };
     }
 
-    const stats = await this.botTaskRepo
+    const stats: BotStatsRow | undefined = await this.botTaskRepo
       .createQueryBuilder('task')
       .select('COUNT(task.id)', 'totalTasks')
       .addSelect('COALESCE(SUM(task.tokensUsed), 0)', 'totalTokensUsed')
@@ -281,11 +300,66 @@ export class BotsService implements OnModuleInit {
       .getRawOne();
 
     return {
-      totalTasks: parseInt(stats.totalTasks, 10),
-      totalTokensUsed: parseInt(stats.totalTokensUsed, 10),
-      avgDurationMs: Math.round(parseFloat(stats.avgDurationMs)),
+      totalTasks: parseInt(stats?.totalTasks ?? '0', 10),
+      totalTokensUsed: parseInt(stats?.totalTokensUsed ?? '0', 10),
+      avgDurationMs: Math.round(parseFloat(stats?.avgDurationMs ?? '0')),
       botCount: botIds.length,
     };
+  }
+
+  // ──── Bot chat ────
+
+  async startBotChat(botId: string, userId: string): Promise<Chat> {
+    const bot = await this.findOne(botId);
+    if (!bot.isActive) {
+      throw new ForbiddenException('Bot is deactivated');
+    }
+
+    const existing = await this.chatRepo
+      .createQueryBuilder('chat')
+      .innerJoin(
+        ChatMember,
+        'cm',
+        'cm."chatId" = chat.id AND cm."userId" = :userId',
+        { userId },
+      )
+      .innerJoin(
+        BotChatMember,
+        'bcm',
+        'bcm."chatId" = chat.id AND bcm."botId" = :botId',
+        { botId },
+      )
+      .where("chat.metadata->>'botDm' = 'true'")
+      .getOne();
+
+    if (existing) return existing;
+
+    const chat = this.chatRepo.create({
+      companyId: bot.companyId,
+      type: ChatType.COMPANY_CHANNEL,
+      name: bot.name,
+      description: bot.description,
+      metadata: { botDm: true, botId },
+    });
+    const saved = await this.chatRepo.save(chat);
+
+    await this.chatMemberRepo.save(
+      this.chatMemberRepo.create({
+        chatId: saved.id,
+        userId,
+        role: ChatMemberRole.OWNER,
+      }),
+    );
+
+    await this.botChatMemberRepo.save(
+      this.botChatMemberRepo.create({
+        botId,
+        chatId: saved.id,
+        addedByUserId: userId,
+      }),
+    );
+
+    return saved;
   }
 
   // ──── Helpers ────
@@ -310,91 +384,143 @@ export class BotsService implements OnModuleInit {
   }
 
   private async seedTemplates(): Promise<void> {
+    // Ensure the accounting enum value exists in PostgreSQL
+    try {
+      await this.templateRepo.query(
+        `ALTER TYPE bot_type ADD VALUE IF NOT EXISTS 'accounting'`,
+      );
+    } catch {
+      // Value may already exist or DB doesn't use native enums
+    }
+
     const count = await this.templateRepo.count();
-    if (count > 0) return;
+    if (count === 0) {
+      const templates: Array<Partial<BotTemplate>> = [
+        {
+          name: 'Financial Analyst',
+          description:
+            'AI agent specializing in financial analysis, budgeting, forecasting, and financial reporting.',
+          category: BotType.CFO,
+          defaultSystemPrompt:
+            'You are a senior financial analyst AI agent. You help with financial analysis, budgeting, forecasting, ' +
+            'cash flow management, and financial reporting. Provide data-driven insights, create financial summaries, ' +
+            'and help with financial decision-making. Always present numbers clearly and explain financial concepts ' +
+            'in accessible terms. When unsure, ask for clarification rather than making assumptions about financial data.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+        {
+          name: 'Marketing Strategist',
+          description:
+            'AI agent for content creation, campaign analysis, SEO optimization, and marketing strategy.',
+          category: BotType.MARKETING,
+          defaultSystemPrompt:
+            'You are a marketing strategist AI agent. You assist with content creation, campaign planning and analysis, ' +
+            'SEO optimization, social media strategy, and brand messaging. Provide creative yet data-informed suggestions. ' +
+            'Help draft copy, analyze campaign performance metrics, and suggest improvements. Adapt your tone to match ' +
+            'the brand voice described by the user.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+        {
+          name: 'HR Assistant',
+          description:
+            'AI agent for employee policies, onboarding processes, and HR-related queries.',
+          category: BotType.HR,
+          defaultSystemPrompt:
+            'You are an HR assistant AI agent. You help with employee handbook questions, company policies, ' +
+            'onboarding processes, benefits information, and general HR inquiries. Be empathetic, precise, and ' +
+            'always recommend consulting with the actual HR department for sensitive matters. Help draft HR ' +
+            'communications and policy documents when asked.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+        {
+          name: 'Customer Support Agent',
+          description:
+            'AI agent for FAQ handling, ticket triage, and customer response drafting.',
+          category: BotType.SUPPORT,
+          defaultSystemPrompt:
+            'You are a customer support AI agent. You help handle frequently asked questions, triage support tickets, ' +
+            'draft customer responses, and identify common issues. Be friendly, professional, and solution-oriented. ' +
+            'Escalate complex issues by recommending the user contact a human support agent. Track and summarize ' +
+            'recurring issues when asked.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+        {
+          name: 'DevOps Engineer',
+          description:
+            'AI agent for infrastructure monitoring, deployment status, and incident response.',
+          category: BotType.DEVOPS,
+          defaultSystemPrompt:
+            'You are a DevOps engineer AI agent. You assist with infrastructure monitoring questions, deployment ' +
+            'status checks, incident response procedures, and infrastructure-as-code guidance. Provide clear, ' +
+            'actionable advice for system administration tasks. Help write configuration files, troubleshoot ' +
+            'deployment issues, and document infrastructure decisions.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+        {
+          name: 'Visma Business NXT Agent',
+          description:
+            'AI accounting assistant integrated with Visma Business NXT. Helps with invoicing, bookkeeping, financial reports, customer/supplier lookups, and VAT returns.',
+          category: BotType.ACCOUNTING,
+          defaultSystemPrompt:
+            'You are an AI accounting assistant integrated with Visma Business NXT. You help users with ' +
+            'invoicing, journal entries, chart of accounts, customer and supplier management, financial reporting, ' +
+            'VAT returns, and general bookkeeping tasks. You are knowledgeable about Norwegian and Scandinavian ' +
+            'accounting standards (NRS, IFRS). When connected to Visma Business NXT, you can look up live data ' +
+            'such as open invoices, account balances, and customer records. Always present financial figures with ' +
+            'correct currency formatting (NOK by default). Ask for clarification before posting any transactions. ' +
+            'Be precise with amounts and dates, and remind users to verify entries before final posting.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+        {
+          name: 'Custom AI Agent',
+          description:
+            'A general-purpose AI agent that can be customized with your own system prompt and tools.',
+          category: BotType.CUSTOM,
+          defaultSystemPrompt:
+            'You are a helpful AI assistant. Answer questions accurately and helpfully. ' +
+            'If you are unsure about something, say so rather than guessing.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        },
+      ];
 
-    const templates: Array<Partial<BotTemplate>> = [
-      {
-        name: 'Financial Analyst',
-        description:
-          'AI agent specializing in financial analysis, budgeting, forecasting, and financial reporting.',
-        category: BotType.CFO,
-        defaultSystemPrompt:
-          'You are a senior financial analyst AI agent. You help with financial analysis, budgeting, forecasting, ' +
-          'cash flow management, and financial reporting. Provide data-driven insights, create financial summaries, ' +
-          'and help with financial decision-making. Always present numbers clearly and explain financial concepts ' +
-          'in accessible terms. When unsure, ask for clarification rather than making assumptions about financial data.',
-        defaultModelId: 'anthropic.claude-sonnet',
-        defaultTools: [],
-      },
-      {
-        name: 'Marketing Strategist',
-        description:
-          'AI agent for content creation, campaign analysis, SEO optimization, and marketing strategy.',
-        category: BotType.MARKETING,
-        defaultSystemPrompt:
-          'You are a marketing strategist AI agent. You assist with content creation, campaign planning and analysis, ' +
-          'SEO optimization, social media strategy, and brand messaging. Provide creative yet data-informed suggestions. ' +
-          'Help draft copy, analyze campaign performance metrics, and suggest improvements. Adapt your tone to match ' +
-          'the brand voice described by the user.',
-        defaultModelId: 'anthropic.claude-sonnet',
-        defaultTools: [],
-      },
-      {
-        name: 'HR Assistant',
-        description:
-          'AI agent for employee policies, onboarding processes, and HR-related queries.',
-        category: BotType.HR,
-        defaultSystemPrompt:
-          'You are an HR assistant AI agent. You help with employee handbook questions, company policies, ' +
-          'onboarding processes, benefits information, and general HR inquiries. Be empathetic, precise, and ' +
-          'always recommend consulting with the actual HR department for sensitive matters. Help draft HR ' +
-          'communications and policy documents when asked.',
-        defaultModelId: 'anthropic.claude-sonnet',
-        defaultTools: [],
-      },
-      {
-        name: 'Customer Support Agent',
-        description:
-          'AI agent for FAQ handling, ticket triage, and customer response drafting.',
-        category: BotType.SUPPORT,
-        defaultSystemPrompt:
-          'You are a customer support AI agent. You help handle frequently asked questions, triage support tickets, ' +
-          'draft customer responses, and identify common issues. Be friendly, professional, and solution-oriented. ' +
-          'Escalate complex issues by recommending the user contact a human support agent. Track and summarize ' +
-          'recurring issues when asked.',
-        defaultModelId: 'anthropic.claude-sonnet',
-        defaultTools: [],
-      },
-      {
-        name: 'DevOps Engineer',
-        description:
-          'AI agent for infrastructure monitoring, deployment status, and incident response.',
-        category: BotType.DEVOPS,
-        defaultSystemPrompt:
-          'You are a DevOps engineer AI agent. You assist with infrastructure monitoring questions, deployment ' +
-          'status checks, incident response procedures, and infrastructure-as-code guidance. Provide clear, ' +
-          'actionable advice for system administration tasks. Help write configuration files, troubleshoot ' +
-          'deployment issues, and document infrastructure decisions.',
-        defaultModelId: 'anthropic.claude-sonnet',
-        defaultTools: [],
-      },
-      {
-        name: 'Custom AI Agent',
-        description:
-          'A general-purpose AI agent that can be customized with your own system prompt and tools.',
-        category: BotType.CUSTOM,
-        defaultSystemPrompt:
-          'You are a helpful AI assistant. Answer questions accurately and helpfully. ' +
-          'If you are unsure about something, say so rather than guessing.',
-        defaultModelId: 'anthropic.claude-sonnet',
-        defaultTools: [],
-      },
-    ];
+      await this.templateRepo.save(
+        templates.map((t) => this.templateRepo.create(t)),
+      );
+      this.logger.log(`Seeded ${templates.length} bot templates`);
+      return;
+    }
 
-    await this.templateRepo.save(
-      templates.map((t) => this.templateRepo.create(t)),
-    );
-    this.logger.log(`Seeded ${templates.length} bot templates`);
+    // Upsert the Visma template for existing deployments that already have seeded data
+    const vismaExists = await this.templateRepo.findOne({
+      where: { name: 'Visma Business NXT Agent' },
+    });
+    if (!vismaExists) {
+      await this.templateRepo.save(
+        this.templateRepo.create({
+          name: 'Visma Business NXT Agent',
+          description:
+            'AI accounting assistant integrated with Visma Business NXT. Helps with invoicing, bookkeeping, financial reports, customer/supplier lookups, and VAT returns.',
+          category: BotType.ACCOUNTING,
+          defaultSystemPrompt:
+            'You are an AI accounting assistant integrated with Visma Business NXT. You help users with ' +
+            'invoicing, journal entries, chart of accounts, customer and supplier management, financial reporting, ' +
+            'VAT returns, and general bookkeeping tasks. You are knowledgeable about Norwegian and Scandinavian ' +
+            'accounting standards (NRS, IFRS). When connected to Visma Business NXT, you can look up live data ' +
+            'such as open invoices, account balances, and customer records. Always present financial figures with ' +
+            'correct currency formatting (NOK by default). Ask for clarification before posting any transactions. ' +
+            'Be precise with amounts and dates, and remind users to verify entries before final posting.',
+          defaultModelId: 'anthropic.claude-sonnet',
+          defaultTools: [],
+        }),
+      );
+      this.logger.log('Seeded Visma Business NXT Agent template');
+    }
   }
 }

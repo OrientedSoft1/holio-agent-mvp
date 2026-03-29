@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
 import { SendCodeDto } from './dto/send-code.dto.js';
@@ -6,6 +6,9 @@ import { VerifyCodeDto } from './dto/verify-code.dto.js';
 import { Verify2faDto } from './dto/verify-2fa.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { Public } from '../common/decorators/public.decorator.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { User } from '../users/entities/user.entity.js';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -38,6 +41,24 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-phone/request')
+  @ApiOperation({ summary: 'Request phone number change' })
+  requestPhoneChange(@CurrentUser() user: User, @Body('phone') phone: string) {
+    return this.authService.requestPhoneChange(user.id, phone);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-phone/verify')
+  @ApiOperation({ summary: 'Verify phone number change' })
+  verifyPhoneChange(
+    @CurrentUser() user: User,
+    @Body('phone') phone: string,
+    @Body('code') code: string,
+  ) {
+    return this.authService.verifyPhoneChange(user.id, phone, code);
   }
 
   @Public()

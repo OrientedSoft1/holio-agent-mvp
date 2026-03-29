@@ -58,10 +58,10 @@ export class Bot {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column()
-  createdBy: string;
+  @Column({ nullable: true })
+  createdBy: string | null;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'createdBy' })
   creator: User;
 

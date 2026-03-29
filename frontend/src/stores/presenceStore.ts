@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 interface PresenceState {
-  onlineUsers: Set<string>
+  onlineUsers: Record<string, true>
   lastSeen: Record<string, string>
   setOnline: (userId: string) => void
   setOffline: (userId: string, lastSeenAt?: string) => void
@@ -10,24 +10,23 @@ interface PresenceState {
 }
 
 export const usePresenceStore = create<PresenceState>((set, get) => ({
-  onlineUsers: new Set(),
+  onlineUsers: {},
   lastSeen: {},
 
   setOnline: (userId: string) =>
     set((state) => {
-      const next = new Set(state.onlineUsers)
-      next.add(userId)
-      return { onlineUsers: next }
+      if (state.onlineUsers[userId]) return state
+      return { onlineUsers: { ...state.onlineUsers, [userId]: true } }
     }),
 
   setOffline: (userId: string, lastSeenAt?: string) =>
     set((state) => {
-      const next = new Set(state.onlineUsers)
-      next.delete(userId)
+      if (!state.onlineUsers[userId]) return state
+      const { [userId]: _, ...rest } = state.onlineUsers
       const ls = lastSeenAt
         ? { ...state.lastSeen, [userId]: lastSeenAt }
         : state.lastSeen
-      return { onlineUsers: next, lastSeen: ls }
+      return { onlineUsers: rest, lastSeen: ls }
     }),
 
   updatePresence: (userId: string, isOnline: boolean, lastSeenAt?: string) => {
@@ -38,5 +37,5 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
     }
   },
 
-  isUserOnline: (userId: string) => get().onlineUsers.has(userId),
+  isUserOnline: (userId: string) => !!get().onlineUsers[userId],
 }))

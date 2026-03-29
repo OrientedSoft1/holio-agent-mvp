@@ -50,6 +50,16 @@ export class StoriesController {
     return this.storiesService.react(id, user.id, emoji);
   }
 
+  @Post(':id/reply')
+  @ApiOperation({ summary: 'Reply to a story' })
+  reply(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body('content') content: string,
+  ) {
+    return this.storiesService.reply(id, user.id, content);
+  }
+
   @Get(':id/viewers')
   @ApiOperation({ summary: 'Get viewers of a story (owner only)' })
   getViewers(

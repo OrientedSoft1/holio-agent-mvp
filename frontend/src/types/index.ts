@@ -17,6 +17,8 @@ export interface Company {
   description: string | null
   bedrockRegion?: string
   bedrockConfig?: BedrockConfig | null
+  memberCount?: number
+  myRole?: 'owner' | 'admin' | 'member' | 'guest'
   createdAt: string
 }
 
@@ -40,6 +42,19 @@ export interface BedrockModel {
   outputModalities: string[]
 }
 
+export interface OpenAIConfig {
+  apiKeyHint?: string
+  organizationId?: string
+  defaultModelId?: string
+  isConfigured: boolean
+}
+
+export interface GeminiConfig {
+  apiKeyHint?: string
+  defaultModelId?: string
+  isConfigured: boolean
+}
+
 export interface CompanyMember {
   id: string
   userId: string
@@ -59,8 +74,17 @@ export interface Chat {
   description: string | null
   isPublic: boolean
   slowModeInterval: number
+  topics?: string[]
   myRole?: 'owner' | 'admin' | 'member'
   muted?: boolean
+  pinned?: boolean
+  isFavourite?: boolean
+  members?: ChatMember[]
+  onlineCount?: number
+  pinnedMessage?: string | null
+  secretAccepted?: boolean
+  verified?: boolean
+  selfDestructTimer?: number
   createdAt: string
 }
 
@@ -124,6 +148,12 @@ export interface Message {
   metadata: MessageMetadata | null
   reactions?: MessageReaction[]
   scheduledAt?: string | null
+  isRead?: boolean
+  isEdited?: boolean
+  readAt?: string | null
+  forwardedFrom?: string | null
+  viewCount?: number
+  forwardCount?: number
   createdAt: string
   updatedAt: string
   sender: User
@@ -146,7 +176,7 @@ export interface Bot {
   name: string
   avatarUrl: string | null
   description: string | null
-  type: 'cfo' | 'marketing' | 'hr' | 'support' | 'devops' | 'custom'
+  type: 'cfo' | 'marketing' | 'hr' | 'support' | 'devops' | 'accounting' | 'custom'
   systemPrompt: string
   modelId: string
   temperature: number
@@ -258,4 +288,147 @@ export interface GroupReadReceipt {
   userId: string
   user: User
   readAt: string
+}
+
+export interface PlaygroundPreset {
+  id: string
+  name: string
+  systemPrompt: string
+  modelId: string
+  temperature: number
+  maxTokens: number
+  companyId: string
+  createdAt: string
+}
+
+export interface PlaygroundMessage {
+  role: 'user' | 'assistant'
+  content: string
+  tokensUsed?: number
+  latencyMs?: number
+}
+
+export interface KnowledgeBase {
+  knowledgeBaseId: string
+  name: string
+  description: string | null
+  status: 'CREATING' | 'ACTIVE' | 'DELETING' | 'UPDATING' | 'FAILED'
+  updatedAt: string
+}
+
+export interface KBRetrievalResult {
+  content: string
+  score: number
+  sourceUri?: string
+  metadata?: Record<string, string>
+}
+
+export interface KBRagResult {
+  answer: string
+  citations: { generatedText: string; references: { sourceUri: string; content: string }[] }[]
+}
+
+export interface Guardrail {
+  guardrailId: string
+  guardrailArn: string
+  name: string
+  description: string | null
+  status: 'READY' | 'CREATING' | 'UPDATING' | 'DELETING' | 'VERSIONING' | 'FAILED'
+  version: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GuardrailDetail extends Guardrail {
+  blockedInputMessaging: string
+  blockedOutputsMessaging: string
+  contentPolicy?: {
+    filters: { type: string; inputStrength: string; outputStrength: string }[]
+  }
+  topicPolicy?: {
+    topics: { name: string; definition: string; type: string }[]
+  }
+  wordPolicy?: {
+    words: { text: string }[]
+    managedWordLists: { type: string }[]
+  }
+  sensitiveInformationPolicy?: {
+    piiEntities: { type: string; action: string }[]
+    regexes: { name: string; pattern: string; action: string }[]
+  }
+}
+
+export interface GuardrailTestResult {
+  action: 'NONE' | 'GUARDRAIL_INTERVENED'
+  outputs: { text: string }[]
+  assessments: Record<string, unknown>[]
+}
+
+export interface ImageGeneration {
+  id: string
+  prompt: string
+  negativePrompt: string | null
+  taskType: 'TEXT_IMAGE' | 'INPAINTING' | 'OUTPAINTING' | 'IMAGE_VARIATION' | 'BACKGROUND_REMOVAL'
+  resultUrl: string
+  width: number
+  height: number
+  params: Record<string, unknown>
+  companyId: string
+  userId: string
+  createdAt: string
+}
+
+export interface AIUsageSummary {
+  totalTokens: number
+  totalTasks: number
+  completedTasks: number
+  failedTasks: number
+  avgResponseMs: number
+  activeBots: number
+  estimatedCost: number
+  budgetLimit: number | null
+}
+
+export interface AIUsageDaily {
+  date: string
+  tokens: number
+  tasks: number
+}
+
+export interface AIUsageByModel {
+  modelId: string
+  tokens: number
+  tasks: number
+  avgResponseMs: number
+}
+
+export interface AIUsageByBot {
+  botId: string
+  botName: string
+  botType: string
+  tokens: number
+  tasks: number
+}
+
+export interface AgentDefinition {
+  id: string
+  name: string
+  description: string | null
+  modelId: string
+  instruction: string
+  actionGroups: AgentActionGroup[]
+  knowledgeBaseIds: string[]
+  bedrockAgentId: string | null
+  bedrockAliasId: string | null
+  status: 'draft' | 'deploying' | 'active' | 'failed'
+  companyId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgentActionGroup {
+  name: string
+  description: string
+  lambdaArn?: string
+  apiSchema?: string
 }

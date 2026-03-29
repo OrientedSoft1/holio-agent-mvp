@@ -70,10 +70,8 @@ export class BotWorkerService {
         content: string;
       }> = recentMessages
         .reverse()
-        .map((msg) => ({
-          role: (msg.senderType === SenderType.BOT ? 'assistant' : 'user') as
-            | 'user'
-            | 'assistant',
+        .map((msg): { role: 'user' | 'assistant'; content: string } => ({
+          role: msg.senderType === SenderType.BOT ? 'assistant' : 'user',
           content:
             msg.senderType === SenderType.USER && msg.sender
               ? `[${msg.sender.firstName ?? msg.sender.username ?? 'User'}]: ${msg.content ?? ''}`
@@ -123,7 +121,7 @@ export class BotWorkerService {
 
       const botMessage = this.messageRepo.create({
         chatId: task.chatId,
-        senderId: bot.id,
+        senderId: null,
         senderType: SenderType.BOT,
         type: MessageType.BOT_RESULT,
         content: result.content,

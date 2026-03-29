@@ -60,7 +60,7 @@ export default function GlobalSearch({ open, onClose, onSelectChat, onSelectUser
     const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
     const parts = text.split(regex)
     return parts.map((part, i) =>
-      regex.test(part) ? (
+      part.toLowerCase() === q.toLowerCase() ? (
         <mark key={i} className="rounded bg-holio-orange/20 px-0.5 text-holio-text">
           {part}
         </mark>

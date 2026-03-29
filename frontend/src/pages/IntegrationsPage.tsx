@@ -1,228 +1,176 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ArrowLeft,
-  ChevronRight,
-  Cloud,
-  Webhook,
-  Key,
-  Zap,
-  Bell,
-  Globe,
-  ShieldCheck,
-  Puzzle,
-} from 'lucide-react'
+import { ArrowLeft, Search, Plug, ChevronRight, Plus, X, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useIntegrationStore } from '../stores/integrationStore'
+import { useCompanyStore } from '../stores/companyStore'
 
-type Category = 'all' | 'ai' | 'automation' | 'developer'
+type Category = 'All' | 'AI & Models' | 'Automation' | 'Developer'
 
-interface Integration {
-  id: string
-  name: string
-  description: string
-  icon: React.ComponentType<{ className?: string }>
-  iconBg: string
-  category: Category[]
-  connected: boolean
-  configurable: boolean
-}
-
-const CATEGORIES: { id: Category; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'ai', label: 'AI & Models' },
-  { id: 'automation', label: 'Automation' },
-  { id: 'developer', label: 'Developer' },
-]
-
-const INITIAL_INTEGRATIONS: Integration[] = [
-  {
-    id: 'aws-bedrock',
-    name: 'AWS Bedrock',
-    description:
-      'Foundation models for AI agents — Claude, Nova, Llama, Mistral and more.',
-    icon: Cloud,
-    iconBg: 'bg-[#232F3E]',
-    category: ['ai'],
-    connected: true,
-    configurable: true,
-  },
-  {
-    id: 'webhooks',
-    name: 'Webhooks',
-    description:
-      'Send real-time event notifications to external services via HTTP callbacks.',
-    icon: Webhook,
-    iconBg: 'bg-purple-500',
-    category: ['developer', 'automation'],
-    connected: false,
-    configurable: false,
-  },
-  {
-    id: 'api-keys',
-    name: 'API Keys',
-    description:
-      'Generate and manage API keys for programmatic access to Holio.',
-    icon: Key,
-    iconBg: 'bg-holio-dark',
-    category: ['developer'],
-    connected: true,
-    configurable: false,
-  },
-  {
-    id: 'zapier',
-    name: 'Zapier',
-    description:
-      'Connect Holio to 6,000+ apps with no-code automation workflows.',
-    icon: Zap,
-    iconBg: 'bg-[#FF4A00]',
-    category: ['automation'],
-    connected: false,
-    configurable: false,
-  },
-  {
-    id: 'notifications',
-    name: 'External Notifications',
-    description:
-      'Push alerts to email, SMS, or third-party services when key events occur.',
-    icon: Bell,
-    iconBg: 'bg-rose-500',
-    category: ['automation'],
-    connected: false,
-    configurable: false,
-  },
-  {
-    id: 'custom-domain',
-    name: 'Custom Domain',
-    description: 'Serve your Holio workspace from a branded custom domain.',
-    icon: Globe,
-    iconBg: 'bg-teal-500',
-    category: ['developer'],
-    connected: false,
-    configurable: false,
-  },
-  {
-    id: 'sso',
-    name: 'SSO',
-    description:
-      'Single sign-on via SAML or OIDC for enterprise identity management.',
-    icon: ShieldCheck,
-    iconBg: 'bg-blue-600',
-    category: ['developer'],
-    connected: false,
-    configurable: true,
-  },
-]
+const CATEGORIES: Category[] = ['All', 'AI & Models', 'Automation', 'Developer']
 
 export default function IntegrationsPage() {
   const navigate = useNavigate()
-  const [activeCategory, setActiveCategory] = useState<Category>('all')
-  const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS)
+  const [activeCategory, setActiveCategory] = useState<Category>('All')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const filtered =
-    activeCategory === 'all'
-      ? integrations
-      : integrations.filter((i) => i.category.includes(activeCategory))
+  const integrations = useIntegrationStore((s) => s.integrations)
+  const storeLoading = useIntegrationStore((s) => s.loading)
+  const fetchIntegrations = useIntegrationStore((s) => s.fetchIntegrations)
+  const toggleConnection = useIntegrationStore((s) => s.toggleConnection)
+  const activeCompany = useCompanyStore((s) => s.activeCompany)
 
-  const toggleConnection = (id: string) => {
-    setIntegrations((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, connected: !i.connected } : i)),
-    )
-  }
+  useEffect(() => {
+    if (activeCompany?.id) {
+      fetchIntegrations(activeCompany.id)
+    }
+  }, [activeCompany?.id, fetchIntegrations])
+
+  const filtered = useMemo(() => {
+    let items = integrations
+    if (activeCategory !== 'All') {
+      items = items.filter((i) => i.category === activeCategory)
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      items = items.filter(
+        (i) => i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q),
+      )
+    }
+    return items
+  }, [integrations, activeCategory, searchQuery])
 
   return (
-    <div className="flex h-screen flex-col bg-holio-offwhite">
-      {/* Hero */}
-      <div className="bg-gradient-to-r from-[#D1CBFB] to-[#FF9220] px-6 pb-8 pt-6">
-        <div className="mx-auto max-w-5xl">
-          <button
-            onClick={() => navigate('/chat')}
-            className="mb-4 flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex items-center gap-3">
-            <Puzzle className="h-7 w-7 text-white" />
-            <h1 className="text-3xl font-bold text-white">Integrations</h1>
+    <div className="flex min-h-full flex-col bg-holio-offwhite">
+      {/* Header */}
+      <div className="flex h-14 items-center gap-3 bg-white px-4 shadow-sm">
+        <button
+          onClick={() => navigate('/settings')}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+
+        {searchOpen ? (
+          <div className="flex flex-1 items-center gap-2">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search integrations…"
+              className="flex-1 bg-transparent text-sm text-holio-text outline-none placeholder:text-holio-muted"
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                setSearchOpen(false)
+                setSearchQuery('')
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <p className="mt-2 max-w-xl text-sm text-white/85">
-            Connect external services, configure AI models, and extend your
-            workspace with powerful third-party tools.
-          </p>
-        </div>
+        ) : (
+          <>
+            <h1 className="flex-1 text-base font-bold text-holio-text">Integrations</h1>
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Category Tabs */}
-      <div className="border-b border-gray-200 bg-white px-6">
-        <div className="mx-auto flex max-w-5xl gap-6">
+      {/* Loading spinner */}
+      {storeLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-holio-orange" />
+        </div>
+      )}
+
+      {/* Scrollable content */}
+      <div className={cn('flex-1 overflow-y-auto pb-24', storeLoading && 'hidden')}>
+        {/* Hero */}
+        <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-r from-holio-lavender to-holio-orange p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
+              <Plug className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Connect Your Tools</h2>
+              <p className="mt-1 text-sm leading-relaxed text-white/90">
+                Extend Holio with AI models, automations, and developer tools to supercharge your
+                workspace.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Category filter tabs */}
+        <div className="mt-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide">
           {CATEGORIES.map((cat) => (
             <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
               className={cn(
-                'relative pb-3 pt-4 text-sm font-medium transition-colors',
-                activeCategory === cat.id
-                  ? 'text-holio-text'
-                  : 'text-holio-muted hover:text-holio-text',
+                'shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                activeCategory === cat
+                  ? 'bg-holio-orange text-white'
+                  : 'bg-white text-holio-muted hover:bg-gray-100',
               )}
             >
-              {cat.label}
-              {activeCategory === cat.id && (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-holio-orange" />
-              )}
+              {cat}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Integration Cards */}
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((integration) => {
-            const Icon = integration.icon
-            return (
-              <div
-                key={integration.id}
-                className="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="mb-4 flex items-start justify-between">
-                  <div
-                    className={cn(
-                      'flex h-12 w-12 items-center justify-center rounded-xl',
-                      integration.iconBg,
-                    )}
-                  >
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                  <span
-                    className={cn(
-                      'mt-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-                      integration.connected
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-gray-100 text-holio-muted',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 rounded-full',
-                        integration.connected ? 'bg-green-500' : 'bg-gray-400',
-                      )}
-                    />
-                    {integration.connected ? 'Connected' : 'Disconnected'}
+        {/* Integration cards */}
+        <div className="mx-4 mt-4 overflow-hidden rounded-2xl bg-white">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-holio-muted">
+              <Search className="mb-2 h-8 w-8 opacity-30" />
+              <p className="text-sm">No integrations found</p>
+            </div>
+          ) : (
+            filtered.map((integration, idx) => (
+              <div key={integration.id}>
+                {idx > 0 && <div className="mx-4 border-t border-gray-100" />}
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-holio-lavender/20 text-xl">
+                    {integration.icon}
                   </span>
-                </div>
 
-                <h3 className="text-base font-bold text-holio-text">
-                  {integration.name}
-                </h3>
-                <p className="mt-1 line-clamp-2 flex-1 text-sm text-holio-muted">
-                  {integration.description}
-                </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-holio-text">{integration.name}</p>
+                      <span className="flex items-center gap-1">
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            integration.connected ? 'bg-green-500' : 'bg-gray-300',
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            'text-[11px]',
+                            integration.connected ? 'text-green-600' : 'text-holio-muted',
+                          )}
+                        >
+                          {integration.connected ? 'Connected' : 'Disconnected'}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-holio-muted">{integration.description}</p>
+                  </div>
 
-                <div className="mt-4 flex items-center gap-3">
+                  {/* Toggle */}
                   <button
-                    onClick={() => toggleConnection(integration.id)}
+                    onClick={() => toggleConnection(activeCompany!.id, integration.id)}
                     className={cn(
-                      'relative h-6 w-11 flex-shrink-0 rounded-full transition-colors',
+                      'relative h-6 w-11 shrink-0 rounded-full transition-colors',
                       integration.connected ? 'bg-holio-orange' : 'bg-gray-300',
                     )}
                   >
@@ -233,34 +181,24 @@ export default function IntegrationsPage() {
                       )}
                     />
                   </button>
-                  <span className="text-xs text-holio-muted">
-                    {integration.connected ? 'Enabled' : 'Disabled'}
-                  </span>
 
+                  {/* Settings chevron */}
                   {integration.configurable && (
-                    <button
-                      onClick={() => navigate('/company-settings')}
-                      className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100 hover:text-holio-text"
-                      title="Configure"
-                    >
+                    <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-100">
                       <ChevronRight className="h-4 w-4" />
                     </button>
                   )}
                 </div>
               </div>
-            )
-          })}
+            ))
+          )}
         </div>
+      </div>
 
-        {filtered.length === 0 && (
-          <div className="mt-16 flex flex-col items-center text-center">
-            <Puzzle className="mb-3 h-12 w-12 text-holio-muted opacity-30" />
-            <p className="text-sm text-holio-muted">
-              No integrations in this category.
-            </p>
-          </div>
-        )}
-      </main>
+      {/* FAB */}
+      <button className="fixed bottom-20 right-5 flex h-14 w-14 items-center justify-center rounded-full bg-holio-orange shadow-lg transition-transform hover:scale-105 active:scale-95">
+        <Plus className="h-6 w-6 text-white" />
+      </button>
     </div>
   )
 }

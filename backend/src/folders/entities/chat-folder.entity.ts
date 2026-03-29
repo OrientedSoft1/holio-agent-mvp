@@ -27,7 +27,7 @@ export class ChatFolder {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   icon: string | null;
 
   @Column({ type: 'jsonb', default: {} })

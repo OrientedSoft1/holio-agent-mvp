@@ -18,13 +18,13 @@ export default function StoryCircle({ group, isOwn, onClick }: StoryCircleProps)
     >
       <div className="relative">
         <div
-          className={`flex h-14 w-14 items-center justify-center rounded-full p-[2px] ${
+          className={`flex h-[52px] w-[52px] items-center justify-center rounded-full p-[2.5px] ${
             allViewed
               ? 'bg-gray-300'
-              : 'bg-gradient-to-br from-holio-orange to-orange-500'
+              : 'bg-gradient-to-br from-holio-orange via-orange-400 to-amber-500'
           }`}
         >
-          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white">
+          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white ring-2 ring-white">
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -44,7 +44,7 @@ export default function StoryCircle({ group, isOwn, onClick }: StoryCircleProps)
           </div>
         )}
       </div>
-      <span className="w-16 truncate text-center text-[11px] text-holio-muted">
+      <span className="w-14 truncate text-center text-[10px] font-medium text-holio-text">
         {isOwn ? 'My Story' : user.firstName ?? user.username}
       </span>
     </button>

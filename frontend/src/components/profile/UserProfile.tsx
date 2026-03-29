@@ -18,9 +18,14 @@ export default function UserProfile({ userId, onBack }: UserProfileProps) {
   const [tab, setTab] = useState<string>('Media')
   const [notif, setNotif] = useState(true)
   const [scrolled, setScrolled] = useState(false)
+  const [mediaItems, setMediaItems] = useState<{ id: string; url?: string; name?: string; type?: string }[]>([])
+  const [mediaLoading, setMediaLoading] = useState(true)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => { let c = false; api.get<User>(`/users/${userId}`).then(({ data }) => { if (!c) setUser(data) }).catch(() => {}).finally(() => { if (!c) setLoading(false) }); return () => { c = true } }, [userId])
+  useEffect(() => { api.get(`/users/${userId}/shared-media`, { params: { type: tab.toLowerCase() } }).then(({ data }) => setMediaItems(Array.isArray(data) ? data : [])).catch(() => setMediaItems([])).finally(() => setMediaLoading(false)) }, [userId, tab])
+
+  const toggleNotif = async () => { const newVal = !notif; setNotif(newVal); try { if (newVal) { await api.post(`/chats/${userId}/unmute`) } else { await api.post(`/chats/${userId}/mute`, { duration: 'forever' }) } } catch { setNotif(!newVal) } }
   const onScroll = useCallback(() => { if (ref.current) setScrolled(ref.current.scrollTop > 80) }, [])
   useEffect(() => { const el = ref.current; if (!el) return; el.addEventListener('scroll', onScroll, { passive: true }); return () => el.removeEventListener('scroll', onScroll) }, [onScroll])
 
@@ -36,10 +41,10 @@ export default function UserProfile({ userId, onBack }: UserProfileProps) {
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="flex h-14 flex-shrink-0 items-center gap-3 border-b border-gray-100 px-4">
-        <button onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><ArrowLeft className="h-5 w-5" /></button>
+        <button onClick={onBack} aria-label="Go back" className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><ArrowLeft className="h-5 w-5" /></button>
         {scrolled ? (<div className="flex flex-1 items-center gap-3 transition-all duration-200">{user.avatarUrl ? <img src={user.avatarUrl} alt={name} className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 items-center justify-center rounded-full bg-holio-lavender/30 text-xs font-semibold text-holio-text">{ini}</div>}<div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-holio-text">{name}</p><p className="text-xs text-holio-muted">{st}</p></div></div>) : <div className="flex-1" />}
-        <button className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><Phone className="h-5 w-5" /></button>
-        <button className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><MoreVertical className="h-5 w-5" /></button>
+        <button title="Voice call" aria-label="Voice call" className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><Phone className="h-5 w-5" /></button>
+        <button title="More options" aria-label="More options" className="flex h-8 w-8 items-center justify-center rounded-full text-holio-text transition-colors hover:bg-gray-50"><MoreVertical className="h-5 w-5" /></button>
       </div>
       <div ref={ref} className="flex-1 overflow-y-auto">
         <div className={cn('flex flex-col items-center px-4 transition-all duration-200', scrolled ? 'h-0 overflow-hidden opacity-0 py-0' : 'py-6 opacity-100')}>
@@ -50,10 +55,10 @@ export default function UserProfile({ userId, onBack }: UserProfileProps) {
         <div className="divide-y divide-gray-100">
           {user.bio && <div className="px-4 py-3"><p className="text-xs text-holio-muted">Bio</p><p className="mt-0.5 text-sm text-holio-text">{user.bio}</p></div>}
           {user.username && <div className="flex items-center justify-between px-4 py-3"><div><p className="text-xs text-holio-muted">Username</p><p className="mt-0.5 text-sm text-holio-text">@{user.username}</p></div><button className="flex h-8 w-8 items-center justify-center rounded-full text-holio-orange transition-colors hover:bg-holio-orange/10"><QrCode className="h-5 w-5" /></button></div>}
-          <div className="flex items-center justify-between px-4 py-3"><div className="flex items-center gap-3">{notif ? <Bell className="h-5 w-5 text-holio-muted" /> : <BellOff className="h-5 w-5 text-holio-muted" />}<span className="text-sm text-holio-text">Notifications</span></div><button onClick={() => setNotif(!notif)} className={cn('relative h-6 w-11 rounded-full transition-colors', notif ? 'bg-holio-orange' : 'bg-gray-300')}><span className={cn('absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', notif ? 'translate-x-5' : 'translate-x-0')} /></button></div>
+          <div className="flex items-center justify-between px-4 py-3"><div className="flex items-center gap-3">{notif ? <Bell className="h-5 w-5 text-holio-muted" /> : <BellOff className="h-5 w-5 text-holio-muted" />}<span className="text-sm text-holio-text">Notifications</span></div><button onClick={toggleNotif} className={cn('relative h-6 w-11 rounded-full transition-colors', notif ? 'bg-holio-orange' : 'bg-gray-300')}><span className={cn('absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', notif ? 'translate-x-5' : 'translate-x-0')} /></button></div>
         </div>
         <div className="sticky top-0 z-10 bg-white"><div className="flex overflow-x-auto border-b border-gray-100 px-2">{MEDIA_TABS.map((t) => <button key={t} onClick={() => setTab(t)} className={cn('flex-shrink-0 px-4 py-3 text-sm transition-colors', tab === t ? 'border-b-2 border-holio-orange font-medium text-holio-orange' : 'text-holio-muted hover:text-holio-text')}>{t}</button>)}</div></div>
-        <div className="grid grid-cols-3 gap-0.5">{Array.from({ length: 9 }, (_, i) => <div key={i} className="aspect-square bg-gray-100"><div className="flex h-full w-full items-center justify-center text-xs text-holio-muted">{tab}</div></div>)}</div>
+        {mediaLoading ? (<div className="flex justify-center py-8"><div className="h-5 w-5 animate-spin rounded-full border-2 border-holio-orange border-t-transparent" /></div>) : mediaItems.length === 0 ? (<div className="flex flex-col items-center py-12 text-center"><p className="text-sm text-holio-muted">No {tab.toLowerCase()} shared yet</p></div>) : (<div className="grid grid-cols-3 gap-0.5">{mediaItems.map((item) => (<div key={item.id} className="aspect-square bg-gray-100 overflow-hidden">{item.url && (item.type === 'image' || tab === 'Media' || tab === 'GIFs') ? (<img src={item.url} alt="" className="h-full w-full object-cover" />) : (<div className="flex h-full w-full items-center justify-center text-xs text-holio-muted">{item.name ?? tab}</div>)}</div>))}</div>)}
       </div>
     </div>
   )

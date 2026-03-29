@@ -5,14 +5,15 @@ interface TypingIndicatorProps {
 }
 
 export default function TypingIndicator({ chatId }: TypingIndicatorProps) {
-  const typingUsers = useChatStore((s) => s.typingUsers[chatId] ?? [])
+  const typingUsers = useChatStore((s) => s.typingUsers[chatId])
+  const count = typingUsers?.length ?? 0
 
-  if (typingUsers.length === 0) return null
+  if (count === 0) return null
 
   const label =
-    typingUsers.length === 1
+    count === 1
       ? 'Someone is typing'
-      : `${typingUsers.length} people are typing`
+      : `${count} people are typing`
 
   return (
     <div className="flex items-center gap-2 px-6 py-1.5">

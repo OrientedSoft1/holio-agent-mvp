@@ -7,7 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository, LessThanOrEqual, IsNull } from 'typeorm';
 import { Message } from './entities/message.entity.js';
 import { ReadReceipt } from './entities/read-receipt.entity.js';
 import { Chat } from '../chats/entities/chat.entity.js';
@@ -117,9 +117,19 @@ export class MessagesService implements OnModuleInit {
     return fullMessage;
   }
 
-  async findByChatId(chatId: string, page = 1, limit = 50) {
+  async findByChatId(
+    chatId: string,
+    page = 1,
+    limit = 50,
+    filters?: { pinned?: boolean },
+  ) {
+    const where: Record<string, unknown> = { chatId, scheduledAt: IsNull() };
+    if (filters?.pinned) {
+      where.isPinned = true;
+    }
+
     const [data, total] = await this.messageRepo.findAndCount({
-      where: { chatId },
+      where,
       relations: ['sender', 'replyTo'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -394,6 +404,8 @@ export class MessagesService implements OnModuleInit {
     const senderMessageIds = new Map<string, string[]>();
 
     for (const msg of unreadMessages) {
+      if (!msg.senderId) continue;
+
       const sender = await this.userRepo.findOne({
         where: { id: msg.senderId },
       });
@@ -605,6 +617,36 @@ export class MessagesService implements OnModuleInit {
     return this.findByChatId(chat.id);
   }
 
+  async sendScheduledNow(messageId: string, userId: string): Promise<Message> {
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId, senderId: userId, isScheduled: true },
+      relations: ['sender'],
+    });
+    if (!message) {
+      throw new NotFoundException('Scheduled message not found');
+    }
+    message.isScheduled = false;
+    message.scheduledAt = null;
+    return this.messageRepo.save(message);
+  }
+
+  async getMediaCounts(chatId: string) {
+    const result = await this.messageRepo
+      .createQueryBuilder('m')
+      .select('m.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('m.chatId = :chatId', { chatId })
+      .andWhere('m.type != :text', { text: 'text' })
+      .groupBy('m.type')
+      .getRawMany<{ type: string; count: string }>();
+
+    const counts: Record<string, number> = {};
+    for (const row of result) {
+      counts[row.type] = parseInt(row.count, 10);
+    }
+    return counts;
+  }
+
   async saveMessage(messageId: string, userId: string): Promise<Message> {
     const original = await this.messageRepo.findOne({
       where: { id: messageId },
@@ -638,5 +680,18 @@ export class MessagesService implements OnModuleInit {
       where: { id: saved.id },
       relations: ['sender', 'forwardedFrom'],
     }) as Promise<Message>;
+  }
+
+  async unsaveMessage(userId: string, messageId: string): Promise<void> {
+    const savedChat = await this.getOrCreateSavedMessagesChat(userId);
+
+    const message = await this.messageRepo.findOne({
+      where: { id: messageId, chatId: savedChat.id },
+    });
+    if (!message) {
+      throw new NotFoundException('Saved message not found');
+    }
+
+    await this.messageRepo.remove(message);
   }
 }

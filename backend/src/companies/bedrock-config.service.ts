@@ -1,12 +1,13 @@
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  scryptSync,
+} from 'crypto';
 import { Company } from './entities/company.entity.js';
 import { UpdateBedrockConfigDto } from './dto/bedrock-config.dto.js';
 
@@ -27,6 +28,9 @@ export interface SanitizedBedrockConfig {
   guardrailVersion?: string;
   defaultModelId?: string;
   maxTokensBudget?: number;
+  kbRoleArn?: string;
+  aossCollectionArn?: string;
+  aossIndexName?: string;
   isConfigured: boolean;
 }
 
@@ -69,7 +73,9 @@ export class BedrockConfigService {
     const encrypted = buf.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
     const decipher = createDecipheriv(ENCRYPTION_ALGO, this.encryptionKey, iv);
     decipher.setAuthTag(authTag);
-    return decipher.update(encrypted) + decipher.final('utf8');
+    return (
+      decipher.update(encrypted).toString('utf-8') + decipher.final('utf8')
+    );
   }
 
   async getConfig(companyId: string): Promise<SanitizedBedrockConfig> {
@@ -91,13 +97,18 @@ export class BedrockConfigService {
       guardrailVersion: cfg?.guardrailVersion,
       defaultModelId: cfg?.defaultModelId,
       maxTokensBudget: cfg?.maxTokensBudget,
+      kbRoleArn: cfg?.kbRoleArn,
+      aossCollectionArn: cfg?.aossCollectionArn,
+      aossIndexName: cfg?.aossIndexName,
       isConfigured: hasCredentials,
     };
   }
 
-  async getDecryptedCredentials(
-    companyId: string,
-  ): Promise<{ accessKeyId: string; secretAccessKey: string; region: string } | null> {
+  async getDecryptedCredentials(companyId: string): Promise<{
+    accessKeyId: string;
+    secretAccessKey: string;
+    region: string;
+  } | null> {
     const company = await this.companyRepo.findOneOrFail({
       where: { id: companyId },
     });
@@ -134,11 +145,28 @@ export class BedrockConfigService {
       ...(dto.secretAccessKey !== undefined && {
         secretAccessKey: this.encrypt(dto.secretAccessKey),
       }),
-      ...(dto.allowedModels !== undefined && { allowedModels: dto.allowedModels }),
+      ...(dto.allowedModels !== undefined && {
+        allowedModels: dto.allowedModels,
+      }),
       ...(dto.guardrailId !== undefined && { guardrailId: dto.guardrailId }),
-      ...(dto.guardrailVersion !== undefined && { guardrailVersion: dto.guardrailVersion }),
-      ...(dto.defaultModelId !== undefined && { defaultModelId: dto.defaultModelId }),
-      ...(dto.maxTokensBudget !== undefined && { maxTokensBudget: dto.maxTokensBudget }),
+      ...(dto.guardrailVersion !== undefined && {
+        guardrailVersion: dto.guardrailVersion,
+      }),
+      ...(dto.defaultModelId !== undefined && {
+        defaultModelId: dto.defaultModelId,
+      }),
+      ...(dto.maxTokensBudget !== undefined && {
+        maxTokensBudget: dto.maxTokensBudget,
+      }),
+      ...(dto.kbRoleArn !== undefined && {
+        kbRoleArn: dto.kbRoleArn,
+      }),
+      ...(dto.aossCollectionArn !== undefined && {
+        aossCollectionArn: dto.aossCollectionArn,
+      }),
+      ...(dto.aossIndexName !== undefined && {
+        aossIndexName: dto.aossIndexName,
+      }),
     };
 
     company.bedrockConfig = updated;
@@ -169,16 +197,28 @@ export class BedrockConfigService {
 
       return { valid: true, modelCount: count };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(`Bedrock credential validation failed: ${message}`);
       return { valid: false, error: message };
     }
   }
 
   async listModels(companyId: string): Promise<BedrockModel[]> {
-    const credentials = await this.getDecryptedCredentials(companyId);
-    if (!credentials) {
+    const companyCredentials = await this.getDecryptedCredentials(companyId);
+
+    const globalAccessKey =
+      this.configService.get<string>('AWS_BEDROCK_ACCESS_KEY_ID') ||
+      this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const globalSecretKey =
+      this.configService.get<string>('AWS_BEDROCK_SECRET_ACCESS_KEY') ||
+      this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
+    const globalRegion = this.configService.get<string>('AWS_BEDROCK_REGION', 'us-east-1');
+
+    const accessKeyId = companyCredentials?.accessKeyId ?? globalAccessKey;
+    const secretAccessKey = companyCredentials?.secretAccessKey ?? globalSecretKey;
+    const region = companyCredentials?.region ?? globalRegion;
+
+    if (!accessKeyId || !secretAccessKey) {
       throw new BadRequestException(
         'AWS Bedrock credentials are not configured for this workspace',
       );
@@ -189,11 +229,8 @@ export class BedrockConfigService {
         await import('@aws-sdk/client-bedrock');
 
       const client = new BedrockClient({
-        region: credentials.region,
-        credentials: {
-          accessKeyId: credentials.accessKeyId,
-          secretAccessKey: credentials.secretAccessKey,
-        },
+        region,
+        credentials: { accessKeyId, secretAccessKey },
       });
 
       const result = await client.send(new ListFoundationModelsCommand({}));
@@ -208,8 +245,7 @@ export class BedrockConfigService {
           outputModalities: m.outputModalities ?? [],
         }));
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to list Bedrock models: ${message}`);
       throw new BadRequestException(`Failed to list models: ${message}`);
     }

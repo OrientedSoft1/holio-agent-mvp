@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -305,6 +306,51 @@ export class ChatsService {
       select: ['userId'],
     });
     return members.map((m) => m.userId);
+  }
+
+  async getMembers(chatId: string) {
+    return this.chatMemberRepo.find({
+      where: { chatId },
+      relations: ['user'],
+    });
+  }
+
+  async setArchived(chatId: string, userId: string, archived: boolean) {
+    const member = await this.chatMemberRepo.findOne({
+      where: { chatId, userId },
+    });
+    if (!member) throw new NotFoundException('Chat membership not found');
+    member.permissions = { ...member.permissions, archived };
+    return this.chatMemberRepo.save(member);
+  }
+
+  async acceptSecretChat(chatId: string, userId: string): Promise<Chat> {
+    const chat = await this.chatRepo.findOne({ where: { id: chatId } });
+    if (!chat) throw new NotFoundException('Chat not found');
+    if (chat.type !== ChatType.DM) {
+      throw new BadRequestException('Not a secret chat');
+    }
+
+    const member = await this.chatMemberRepo.findOne({
+      where: { chatId, userId },
+    });
+    if (!member) throw new ForbiddenException('Not a member of this chat');
+
+    return chat;
+  }
+
+  async setSelfDestructTimer(
+    chatId: string,
+    userId: string,
+    timer: number,
+  ): Promise<Chat> {
+    const chat = await this.chatRepo.findOne({ where: { id: chatId } });
+    if (!chat) throw new NotFoundException('Chat not found');
+
+    await this.checkMembership(chatId, userId);
+
+    chat.metadata = { ...chat.metadata, selfDestructTimer: timer };
+    return this.chatRepo.save(chat);
   }
 
   private async checkChatAdminAccess(

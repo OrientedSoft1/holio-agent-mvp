@@ -1,4 +1,4 @@
-﻿import {
+import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -37,10 +37,10 @@ export class Upload {
   @Column()
   url: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   thumbnailUrl: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   purpose: string | null;
 
   @CreateDateColumn()

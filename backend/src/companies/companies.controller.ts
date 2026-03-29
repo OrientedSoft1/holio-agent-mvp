@@ -16,6 +16,8 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service.js';
 import { BedrockConfigService } from './bedrock-config.service.js';
+import { OpenAIConfigService } from './openai-config.service.js';
+import { GeminiConfigService } from './gemini-config.service.js';
 import { CreateCompanyDto } from './dto/create-company.dto.js';
 import { UpdateCompanyDto } from './dto/update-company.dto.js';
 import { InviteMemberDto } from './dto/invite-member.dto.js';
@@ -24,6 +26,14 @@ import {
   UpdateBedrockConfigDto,
   ValidateBedrockCredentialsDto,
 } from './dto/bedrock-config.dto.js';
+import {
+  UpdateOpenAIConfigDto,
+  ValidateOpenAIKeyDto,
+} from './dto/openai-config.dto.js';
+import {
+  UpdateGeminiConfigDto,
+  ValidateGeminiKeyDto,
+} from './dto/gemini-config.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { User } from '../users/entities/user.entity.js';
@@ -36,6 +46,8 @@ export class CompaniesController {
   constructor(
     private readonly companiesService: CompaniesService,
     private readonly bedrockConfigService: BedrockConfigService,
+    private readonly openaiConfigService: OpenAIConfigService,
+    private readonly geminiConfigService: GeminiConfigService,
   ) {}
 
   @Post()
@@ -121,6 +133,21 @@ export class CompaniesController {
     return this.companiesService.declineInvitation(token);
   }
 
+  @Delete(':id/invitations/:invitationId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cancel/delete a company invitation' })
+  cancelInvitation(
+    @Param('id', ParseUUIDPipe) companyId: string,
+    @Param('invitationId', ParseUUIDPipe) invitationId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.companiesService.cancelInvitation(
+      companyId,
+      invitationId,
+      user.id,
+    );
+  }
+
   // ──── Member management ────
 
   @Patch(':id/members/:userId')
@@ -196,5 +223,73 @@ export class CompaniesController {
   ) {
     await this.companiesService.checkAdminAccessPublic(id, user.id);
     return this.bedrockConfigService.listModels(id);
+  }
+
+  // ──── OpenAI Configuration ────
+
+  @Get(':id/openai-config')
+  @ApiOperation({ summary: 'Get OpenAI configuration for a company' })
+  async getOpenAIConfig(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.openaiConfigService.getConfig(id);
+  }
+
+  @Put(':id/openai-config')
+  @ApiOperation({ summary: 'Update OpenAI configuration for a company' })
+  async updateOpenAIConfig(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateOpenAIConfigDto,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.openaiConfigService.updateConfig(id, dto);
+  }
+
+  @Post(':id/openai-config/validate')
+  @ApiOperation({ summary: 'Validate an OpenAI API key' })
+  async validateOpenAIKey(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: ValidateOpenAIKeyDto,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.openaiConfigService.validateApiKey(dto.apiKey);
+  }
+
+  // ──── Gemini Configuration ────
+
+  @Get(':id/gemini-config')
+  @ApiOperation({ summary: 'Get Gemini configuration for a company' })
+  async getGeminiConfig(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.geminiConfigService.getConfig(id);
+  }
+
+  @Put(':id/gemini-config')
+  @ApiOperation({ summary: 'Update Gemini configuration for a company' })
+  async updateGeminiConfig(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateGeminiConfigDto,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.geminiConfigService.updateConfig(id, dto);
+  }
+
+  @Post(':id/gemini-config/validate')
+  @ApiOperation({ summary: 'Validate a Gemini API key' })
+  async validateGeminiKey(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: ValidateGeminiKeyDto,
+  ) {
+    await this.companiesService.checkAdminAccessPublic(id, user.id);
+    return this.geminiConfigService.validateApiKey(dto.apiKey);
   }
 }

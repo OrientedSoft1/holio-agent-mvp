@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  ArrowLeft,
-  Lock,
+  ShieldCheck,
   Phone,
   MoreVertical,
   Timer,
@@ -15,17 +14,15 @@ import TypingIndicator from './TypingIndicator'
 import InChatSearch from '../search/InChatSearch'
 import { useChatStore } from '../../stores/chatStore'
 import { useAuthStore } from '../../stores/authStore'
+import { usePresenceStore } from '../../stores/presenceStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getSocket } from '../../services/socket.service'
+import api from '../../services/api.service'
 import { cn } from '../../lib/utils'
+import type { Chat } from '../../types'
 
 interface SecretChatViewProps {
-  chatId: string
-  peerName: string
-  peerAvatar?: string | null
-  peerStatus?: string
-  isOnline?: boolean
-  onBack?: () => void
+  chat: Chat
 }
 
 const SELF_DESTRUCT_OPTIONS = [
@@ -70,14 +67,19 @@ function groupMessagesByDate(messages: { createdAt: string }[]) {
   return groups
 }
 
-export default function SecretChatView({
-  chatId,
-  peerName,
-  peerAvatar,
-  peerStatus,
-  isOnline = false,
-  onBack,
-}: SecretChatViewProps) {
+function formatRelTime(iso: string) {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  return h < 24 ? `${h}h ago` : 'recently'
+}
+
+export default function SecretChatView({ chat }: SecretChatViewProps) {
+  const chatId = chat.id
+  const peerName = chat.name ?? 'Secret Chat'
+  const peerAvatar = chat.avatarUrl
+
   const messages = useChatStore((s) => s.messages)
   const messagesLoading = useChatStore((s) => s.messagesLoading)
   const currentUserId = useAuthStore((s) => s.user?.id)
@@ -86,9 +88,38 @@ export default function SecretChatView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
+  const [peerUserId, setPeerUserId] = useState<string | null>(null)
   const [showBanner, setShowBanner] = useState(true)
   const [selfDestructTime, setSelfDestructTime] = useState(0)
   const [showTimerMenu, setShowTimerMenu] = useState(false)
+
+  const isOnline = usePresenceStore((s) =>
+    peerUserId ? !!s.onlineUsers[peerUserId] : false,
+  )
+  const lastSeen = usePresenceStore((s) =>
+    peerUserId ? s.lastSeen[peerUserId] : undefined,
+  )
+
+  useEffect(() => {
+    if (!currentUserId) return
+    api
+      .get(`/chats/${chatId}/members`)
+      .then(({ data }) => {
+        const other = data.find((m: { userId: string }) => m.userId !== currentUserId)
+        if (other) setPeerUserId(other.userId)
+      })
+      .catch(() => {})
+  }, [chatId, currentUserId])
+
+  useEffect(() => {
+    api
+      .get(`/chats/${chatId}`)
+      .then(({ data }) => {
+        if (data.selfDestructTimer != null)
+          setSelfDestructTime(data.selfDestructTimer)
+      })
+      .catch(() => {})
+  }, [chatId])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -115,7 +146,11 @@ export default function SecretChatView({
     .slice(0, 2)
     .toUpperCase()
 
-  const statusText = peerStatus ?? (isOnline ? 'online' : '')
+  const statusText = isOnline
+    ? 'online'
+    : lastSeen
+      ? `last seen ${formatRelTime(lastSeen)}`
+      : ''
   const dateGroups = groupMessagesByDate(messages)
   const activeTimerLabel =
     selfDestructTime > 0
@@ -127,16 +162,6 @@ export default function SecretChatView({
       {/* Header */}
       <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          )}
-
-          {/* Avatar with green lock badge overlay */}
           <div className="relative">
             {peerAvatar ? (
               <img
@@ -149,36 +174,33 @@ export default function SecretChatView({
                 {initials}
               </div>
             )}
-            <div className="absolute -right-0.5 -bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#C6D5BA]">
-              <Lock className="h-2.5 w-2.5 text-white" />
-            </div>
+            {isOnline && (
+              <div className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
+            )}
           </div>
-
-          {/* Name with inline lock icon */}
           <div>
             <div className="flex items-center gap-1.5">
-              <Lock className="h-3.5 w-3.5 text-[#C6D5BA]" />
-              <h3 className="text-sm font-semibold text-holio-text">
+              <ShieldCheck className="h-3.5 w-3.5 text-holio-sage" />
+              <h3 className="text-sm font-semibold text-holio-sage">
                 {peerName}
               </h3>
             </div>
             {statusText && (
-              <p className="text-xs text-holio-muted">
-                {statusText === 'online' ? (
-                  <span className="text-green-500">online</span>
-                ) : (
-                  statusText
-                )}
-              </p>
+              <p className="text-xs text-holio-muted">{statusText}</p>
             )}
           </div>
         </div>
-
         <div className="flex items-center gap-1">
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            title="Voice call"
+          >
             <Phone className="h-5 w-5" />
           </button>
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text">
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-holio-muted transition-colors hover:bg-gray-50 hover:text-holio-text"
+            title="More options"
+          >
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>
@@ -186,14 +208,14 @@ export default function SecretChatView({
 
       {/* Encryption banner */}
       {showBanner && (
-        <div className="flex items-center justify-center gap-2 bg-[#C6D5BA]/20 px-4 py-2">
-          <Lock className="h-3.5 w-3.5 text-[#C6D5BA]" />
-          <span className="text-xs font-medium text-[#6B8C5E]">
+        <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-xl border border-holio-sage/20 bg-holio-sage/10 p-3">
+          <ShieldCheck className="h-4 w-4 flex-shrink-0 text-holio-sage" />
+          <span className="flex-1 text-xs font-medium text-holio-sage">
             Messages are end-to-end encrypted
           </span>
           <button
             onClick={() => setShowBanner(false)}
-            className="ml-1 rounded-full p-0.5 text-[#C6D5BA] transition-colors hover:text-[#6B8C5E]"
+            className="rounded-full p-0.5 text-holio-sage/50 transition-colors hover:text-holio-sage"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -208,10 +230,10 @@ export default function SecretChatView({
         />
       )}
 
-      {/* Messages area — lavender-tinted background */}
+      {/* Messages area with lavender gradient */}
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-1 overflow-y-auto bg-[#F0EEFF] px-4 py-4"
+        className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gradient-to-b from-holio-sage/10 to-holio-lavender/10 px-4 py-4"
       >
         {messagesLoading && (
           <div className="flex justify-center py-4">
@@ -229,6 +251,7 @@ export default function SecretChatView({
                 <MessageBubble
                   key={msg.id}
                   rawMessage={msg}
+                  isSecretChat
                   message={{
                     id: msg.id,
                     content: msg.content,
@@ -259,14 +282,14 @@ export default function SecretChatView({
 
       {/* Input area with self-destruct timer */}
       <div className="flex items-center gap-0 bg-white">
-        <div className="relative ml-2">
+        <div className="relative">
           <button
             onClick={() => setShowTimerMenu(!showTimerMenu)}
             className={cn(
-              'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-50',
+              'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors ml-2',
               selfDestructTime > 0
-                ? 'text-holio-orange'
-                : 'text-holio-muted hover:text-holio-text',
+                ? 'bg-holio-sage/10 text-holio-sage'
+                : 'text-holio-muted hover:bg-gray-50 hover:text-holio-text',
             )}
             title={
               activeTimerLabel
@@ -276,12 +299,11 @@ export default function SecretChatView({
           >
             <Timer className="h-5 w-5" />
             {activeTimerLabel && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-holio-orange px-1 text-[9px] font-bold text-white">
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-holio-sage px-1 text-[9px] font-bold text-white">
                 {activeTimerLabel}
               </span>
             )}
           </button>
-
           {showTimerMenu && (
             <>
               <div
@@ -298,17 +320,22 @@ export default function SecretChatView({
                     onClick={() => {
                       setSelfDestructTime(opt.value)
                       setShowTimerMenu(false)
+                      api
+                        .patch(`/chats/${chatId}/self-destruct`, {
+                          timer: opt.value,
+                        })
+                        .catch(() => {})
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50',
                       selfDestructTime === opt.value
-                        ? 'font-medium text-holio-orange'
+                        ? 'font-medium text-holio-sage'
                         : 'text-holio-text',
                     )}
                   >
                     {opt.label}
                     {selfDestructTime === opt.value && (
-                      <Check className="h-4 w-4 text-holio-orange" />
+                      <Check className="h-4 w-4 text-holio-sage" />
                     )}
                   </button>
                 ))}
@@ -316,7 +343,6 @@ export default function SecretChatView({
             </>
           )}
         </div>
-
         <div className="min-w-0 flex-1">
           <MessageInput chatId={chatId} />
         </div>

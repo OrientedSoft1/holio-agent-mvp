@@ -1,18 +1,23 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search, X, Loader2 } from 'lucide-react'
+import api from '../../services/api.service'
 
 interface GifPickerProps {
   onSelect: (gifUrl: string) => void
   onClose: () => void
 }
 
-const PLACEHOLDER_GIFS = Array.from({ length: 12 }, (_, i) => ({
-  id: `gif-${i}`,
-  url: `https://placehold.co/200x${140 + (i % 3) * 30}/D1CBFB/152022?text=GIF+${i + 1}`,
-}))
+interface Gif {
+  id: string
+  url: string
+  previewUrl: string
+  title: string
+}
 
 export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const [query, setQuery] = useState('')
+  const [gifs, setGifs] = useState<Gif[]>([])
+  const [loading, setLoading] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,9 +30,22 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [onClose])
 
-  const filteredGifs = query
-    ? PLACEHOLDER_GIFS.filter((_, i) => i % 2 === 0)
-    : PLACEHOLDER_GIFS
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const endpoint = query.trim() ? '/gifs/search' : '/gifs/trending'
+        const params = query.trim() ? { q: query, limit: 20 } : { limit: 20 }
+        const { data } = await api.get<Gif[]>(endpoint, { params })
+        setGifs(data)
+      } catch {
+        setGifs([])
+      } finally {
+        setLoading(false)
+      }
+    }, query ? 300 : 0)
+    return () => clearTimeout(timer)
+  }, [query])
 
   return (
     <div
@@ -52,20 +70,30 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
       </div>
 
       <div className="grid max-h-72 grid-cols-2 gap-1 overflow-y-auto p-2">
-        {filteredGifs.map((gif) => (
-          <button
-            key={gif.id}
-            onClick={() => onSelect(gif.url)}
-            className="overflow-hidden rounded-lg transition-transform hover:scale-[1.02]"
-          >
-            <img
-              src={gif.url}
-              alt="GIF"
-              className="w-full object-cover"
-              loading="lazy"
-            />
-          </button>
-        ))}
+        {loading ? (
+          <div className="col-span-2 flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-holio-muted" />
+          </div>
+        ) : gifs.length === 0 ? (
+          <div className="col-span-2 py-12 text-center text-sm text-holio-muted">
+            No GIFs found
+          </div>
+        ) : (
+          gifs.map((gif) => (
+            <button
+              key={gif.id}
+              onClick={() => onSelect(gif.url)}
+              className="overflow-hidden rounded-lg transition-transform hover:scale-[1.02]"
+            >
+              <img
+                src={gif.previewUrl}
+                alt={gif.title}
+                className="w-full object-cover"
+                loading="lazy"
+              />
+            </button>
+          ))
+        )}
       </div>
 
       <div className="border-t border-gray-100 px-3 py-1.5 text-center text-[10px] text-holio-muted">

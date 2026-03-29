@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
 import {
   Building2,
   Users,
@@ -16,13 +16,16 @@ import {
   User,
   Cpu,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useCompanyStore } from '../stores/companyStore'
 import api from '../services/api.service'
 import { cn } from '../lib/utils'
 import BedrockSettings from '../components/company/BedrockSettings'
+import OpenAISettings from '../components/company/OpenAISettings'
+import GeminiSettings from '../components/company/GeminiSettings'
 import type { Company, CompanyMember, CompanyInvitation } from '../types'
 
-type Tab = 'general' | 'members' | 'invitations' | 'bedrock'
+type Tab = 'general' | 'members' | 'invitations' | 'bedrock' | 'openai' | 'gemini'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <Settings className="h-4 w-4" /> },
@@ -34,7 +37,17 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'bedrock',
-    label: 'AI Configuration',
+    label: 'AWS Bedrock',
+    icon: <Cpu className="h-4 w-4" />,
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    icon: <Cpu className="h-4 w-4" />,
+  },
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
     icon: <Cpu className="h-4 w-4" />,
   },
 ]
@@ -84,6 +97,8 @@ function GeneralTab({ company }: { company: Company }) {
   const [description, setDescription] = useState(company.description || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const logoInputRef = useRef<HTMLInputElement>(null)
   const { setActiveCompany } = useCompanyStore()
 
   async function handleSave(e: FormEvent) {
@@ -126,10 +141,33 @@ function GeneralTab({ company }: { company: Company }) {
               )}
               <button
                 type="button"
+                onClick={() => logoInputRef.current?.click()}
                 className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-holio-muted transition-colors hover:bg-gray-200"
               >
                 <Upload className="h-3.5 w-3.5" />
               </button>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setUploadError('')
+                  try {
+                    const formData = new FormData()
+                    formData.append('file', file)
+                    const { data } = await api.post<{ url: string }>('/uploads/company-logo', formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' },
+                    })
+                    await api.patch(`/companies/${company.id}`, { logoUrl: data.url })
+                    setActiveCompany({ ...company, logoUrl: data.url })
+                  } catch {
+                    setUploadError('Failed to upload logo')
+                  }
+                }}
+              />
             </div>
             <div>
               <p className="text-sm font-medium text-holio-text">
@@ -138,6 +176,9 @@ function GeneralTab({ company }: { company: Company }) {
               <p className="text-xs text-holio-muted">
                 PNG, JPG up to 2MB. Displayed as a circle.
               </p>
+              {uploadError && (
+                <p className="mt-1 text-xs text-red-500">{uploadError}</p>
+              )}
             </div>
           </div>
 
@@ -203,14 +244,16 @@ function MembersTab({ companyId }: { companyId: string }) {
   const [members, setMembers] = useState<CompanyMember[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   const loadMembers = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await api.get<CompanyMember[]>(
+      const { data } = await api.get<{ data: CompanyMember[]; total: number }>(
         `/companies/${companyId}/members`,
       )
-      setMembers(data)
+      const raw = Array.isArray(data) ? data : data.data ?? []
+      setMembers(raw.filter((m: CompanyMember) => m.user != null))
     } catch {
       // handle silently
     } finally {
@@ -248,12 +291,13 @@ function MembersTab({ companyId }: { companyId: string }) {
   }
 
   const filtered = members.filter((m) => {
+    if (!m.user) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (
-      m.user.firstName.toLowerCase().includes(q) ||
+      m.user.firstName?.toLowerCase().includes(q) ||
       m.user.lastName?.toLowerCase().includes(q) ||
-      m.user.phone.includes(q)
+      m.user.phone?.includes(q)
     )
   })
 
@@ -263,6 +307,13 @@ function MembersTab({ companyId }: { companyId: string }) {
         <h3 className="text-lg font-semibold text-holio-text">
           Members ({members.length})
         </h3>
+        <button
+          onClick={() => setShowInviteModal(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-holio-orange px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-500"
+        >
+          <UserPlus className="h-4 w-4" />
+          Invite member
+        </button>
       </div>
 
       <div className="mb-4">
@@ -302,7 +353,7 @@ function MembersTab({ companyId }: { companyId: string }) {
                 key={member.id}
                 className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-gray-50"
               >
-                {member.user.avatarUrl ? (
+                {member.user?.avatarUrl ? (
                   <img
                     src={member.user.avatarUrl}
                     alt={member.user.firstName}
@@ -310,16 +361,16 @@ function MembersTab({ companyId }: { companyId: string }) {
                   />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-holio-lavender text-sm font-semibold text-holio-dark">
-                    {member.user.firstName.charAt(0)}
+                    {member.user?.firstName?.charAt(0) ?? '?'}
                   </div>
                 )}
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-holio-text">
-                    {member.user.firstName} {member.user.lastName || ''}
+                    {member.user?.firstName ?? 'Unknown'} {member.user?.lastName || ''}
                   </p>
                   <p className="text-xs text-holio-muted">
-                    {member.user.phone}
+                    {member.user?.phone ?? ''}
                   </p>
                 </div>
 
@@ -350,6 +401,14 @@ function MembersTab({ companyId }: { companyId: string }) {
           </div>
         )}
       </div>
+
+      {showInviteModal && (
+        <InviteModal
+          companyId={companyId}
+          onClose={() => setShowInviteModal(false)}
+          onInvited={() => loadMembers()}
+        />
+      )}
     </div>
   )
 }
@@ -595,12 +654,16 @@ function InvitationsTab({ companyId }: { companyId: string }) {
 }
 
 export default function CompanySettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('general')
+  const [searchParams] = useSearchParams()
+  const initialTab = (searchParams.get('tab') as Tab) || 'general'
+  const [activeTab, setActiveTab] = useState<Tab>(
+    TABS.some((t) => t.id === initialTab) ? initialTab : 'general',
+  )
   const { activeCompany } = useCompanyStore()
 
   if (!activeCompany) {
     return (
-      <div className="flex h-screen items-center justify-center bg-holio-offwhite">
+      <div className="flex h-full items-center justify-center bg-holio-offwhite">
         <div className="text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-holio-muted" />
           <p className="text-holio-muted">No workspace selected</p>
@@ -616,7 +679,7 @@ export default function CompanySettingsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-holio-offwhite">
+    <div className="flex h-full bg-holio-offwhite">
       <aside className="w-64 border-r border-gray-200 bg-white">
         <div className="flex h-14 items-center border-b border-gray-200 px-5">
           <h1 className="text-lg font-bold text-holio-text">HOLIO</h1>
@@ -688,6 +751,12 @@ export default function CompanySettingsPage() {
           )}
           {activeTab === 'bedrock' && (
             <BedrockSettings companyId={activeCompany.id} />
+          )}
+          {activeTab === 'openai' && (
+            <OpenAISettings companyId={activeCompany.id} />
+          )}
+          {activeTab === 'gemini' && (
+            <GeminiSettings companyId={activeCompany.id} />
           )}
         </div>
       </main>

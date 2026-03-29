@@ -1,8 +1,8 @@
 import { useRef, useEffect } from 'react'
-import { Image, File, UserCircle, MapPin } from 'lucide-react'
+import { Image, File, UserCircle, MapPin, BarChart3 } from 'lucide-react'
 
 interface AttachMenuProps {
-  onSelect: (type: 'photo' | 'document' | 'contact' | 'location') => void
+  onSelect: (type: 'photo' | 'document' | 'contact' | 'location' | 'poll') => void
   onClose: () => void
 }
 
@@ -11,6 +11,7 @@ const MENU_ITEMS = [
   { type: 'document' as const, label: 'Document', icon: File, color: 'text-purple-500' },
   { type: 'contact' as const, label: 'Contact', icon: UserCircle, color: 'text-orange-500' },
   { type: 'location' as const, label: 'Location', icon: MapPin, color: 'text-green-500' },
+  { type: 'poll' as const, label: 'Poll', icon: BarChart3, color: 'text-holio-orange' },
 ]
 
 export default function AttachMenu({ onSelect, onClose }: AttachMenuProps) {

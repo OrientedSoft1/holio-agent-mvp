@@ -96,6 +96,15 @@ export class GroupsController {
     return this.groupsService.banMember(id, userId, user.id);
   }
 
+  @Get(':id/invite-links')
+  @ApiOperation({ summary: 'List existing invite links for a channel' })
+  getInviteLinks(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.groupsService.getInviteLinks(id, user.id);
+  }
+
   @Post(':id/invite-link')
   @ApiOperation({ summary: 'Generate a channel invite link' })
   generateInviteLink(
