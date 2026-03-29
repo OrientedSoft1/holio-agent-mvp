@@ -50,7 +50,7 @@ export interface CompanyMember {
 
 export interface Chat {
   id: string
-  type: 'private' | 'group' | 'channel' | 'bot' | 'crossCompany'
+  type: 'private' | 'group' | 'channel' | 'bot' | 'crossCompany' | 'secret'
   name: string | null
   avatarUrl: string | null
   lastMessage: Message | null
